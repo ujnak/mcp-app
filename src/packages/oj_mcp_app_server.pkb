@@ -416,7 +416,9 @@ as
             l_resource := json_object_t();
             l_resource.put('uri',      r.resource_uri);
             l_resource.put('mimeType', r.mime_type);
-            l_resource.put('text',     r.text); 
+            l_resource.put('text',     r.text);
+            /* Although it should not be written directly, for the time being. */
+            l_resource.put('_meta', json_object_t('{ "ui": { "csp": { "resourceDomains": ["https://cdn.jsdelivr.net"] }}}'));
             l_contents_arr.append(l_resource);
         end loop;
         /* Format outout.  */
