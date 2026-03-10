@@ -6,6 +6,12 @@ This repository provides an experimental implementation of an MCP App running on
 
 This implementation is intended for experimentation and reference purposes.
 
+## Verification Status
+
+- MCP Inspector v0.21.1: YES
+- OpenAI ChatGPT (Web + Developer Mode): YES
+- Claude 1.1.5749 (ecf3d9) 2026-03-08T18:23:37.000Z: NO
+
 ## Mandatory components
 
 - Oracle Database (19c or 26ai)

@@ -20,7 +20,6 @@ as
         l_client_protocol_version  varchar2(32);
         l_client_capabilities_json json_object_t;
         l_client_extensions_json   json_object_t;
-        l_io_modelcontextprotocol_ui json_object_t;
         l_capabilities_json json_object_t;
         l_resources_json    json_object_t;
         l_tools_json        json_object_t;
@@ -90,14 +89,18 @@ as
         l_capabilities_json.put('tools', l_tools_json);
 
         /*
-         * Check if "io.modelcontextprotocol/ui" is in the "extensions" to support MCP App.
+         * This server supports MCP App; therefore, include "io.modelcontextprotocol/ui"
+         * in the extensions regardless of client declaration.
 　　      */
         l_client_extensions_json := l_client_capabilities_json.get_object('extensions');
         if l_client_extensions_json is not null then
-            l_io_modelcontextprotocol_ui := l_client_extensions_json.get_object('io.modelcontextprotocol/ui');
-            if l_io_modelcontextprotocol_ui is not null then
-                l_capabilities_json.put('extensions', l_io_modelcontextprotocol_ui);
-                uc_ai_logger.log_info('initialize: client declared extensions/io.modelcontextprotocol/ui capability', l_scope);
+            if l_client_extensions_json.get_object('io.modelcontextprotocol/ui') is not null then
+                l_capabilities_json.put('extensions',  l_client_extensions_json);
+                uc_ai_logger.log_info('MCP App extension declared by client' || l_client_extensions_json.to_clob(), l_scope);
+            else
+                l_client_extensions_json := json_object_t('{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}');
+                l_capabilities_json.put('extensions',  l_client_extensions_json);
+                uc_ai_logger.log_info('MCP App extension added by server.', l_scope);
             end if;
         end if;
 
@@ -229,6 +232,8 @@ as
         l_name varchar2(128);
         l_args_obj json_object_t;
         l_out clob;
+        l_meta     json_object_t;
+        l_meta_uri json_object_t;
         l_result_json json_object_t;
         l_content_arr json_array_t;
         l_out_obj json_object_t;
@@ -278,8 +283,24 @@ as
         l_out_obj     := json_object_t();
         l_out_obj.put('type', 'text');
         l_out_obj.put('text', l_out);
+        /* put tool output to content array */
         l_content_arr.append(l_out_obj);
         l_result_json.put('content', l_content_arr);
+        /* add _meta if tool has a resourceUri for MCP App support */
+        for r in (
+            select r.resource_uri
+            from oj_mcp_uc_ai_tools t join oj_mcp_app_resources r on t.resource_id = r.id
+            where t.code = l_name
+        )
+        loop
+            /* only a maximum of one row is selected. */
+            l_meta     := json_object_t();
+            l_meta_uri := json_object_t();
+            l_meta_uri.put('resourceUri', r.resource_uri);
+            l_meta.put('ui', l_meta_uri);
+            l_meta.put('ui/resourceUri', r.resource_uri);
+            l_result_json.put('_meta', l_meta);
+        end loop;
         l_result_json.put('isError', false);
         p_result := l_result_json.to_clob();
         p_error := null;
