@@ -1,36 +1,96 @@
-# Experimental implementation of MCP App on top of Oracle Database and ORDS.
+# MCP App Experimental Implementation on Oracle Database and ORDS
 
-Mandatory components;
-- Oracle Database, 19c or 26ai.
-- Oracle REST Data Services
+## Overview
+
+This repository provides an experimental implementation of an MCP App running on top of Oracle Database and Oracle REST Data Services (ORDS).
+
+This implementation is intended for experimentation and reference purposes.
+
+## Mandatory components
+
+- Oracle Database (19c or 26ai)
+- Oracle REST Data Services (ORDS)
 - Oracle APEX
-- United Codes, UC_AI https://github.com/United-Codes/uc_ai
+- [United Codes UC_AI](https://github.com/United-Codes/uc_ai)
 
-## Install
+## Repository Structure
 
-install-tables.sql
-    Create table OJ_MCP_APP_RESOURCES and OJ_MCP_TOOLS_EXTRAS
-    Create view OJ_MCP_UC_AI_TOOLS
+- src
 
-install-packages.sql
-    OJ_MCP_APP_SERVER, OJ_MCP_APP_UTILS, OJ_MCP_JSONRPC_UTILS
+    tables, views, packages, and sample definitions
+- ords
 
-install-sampleserver.sql
-    ORDS REST module sampleserver
-    PL/SQL Functions, get_scheme, run_sql and get_current_user
-    UC_AI tool definitiions for the PL/SQL functions.
-    define UI resources for tool get_current_user
+    ORDS REST module export
+- nginx
 
-## Requirements to run sampleserver
+    configuration files for nginx to support OpenID Connect
 
-1. The APEX workspace name must match the ORDS alias.
+## Installation
 
-The APEX workspace name and the ORDS alias will typically match.
+### install-tables.sql
 
-2. The URI prefix must be the module name enclosed in "/".
+Creates:
 
-ORDS REST module "sampleserver" will be created. The URL prefix is "/sampleserver/".
+- table `OJ_MCP_APP_RESOURCES`
+- table `OJ_MCP_TOOLS_EXTRAS`
+- view `OJ_MCP_UC_AI_TOOLS`
 
-3. An APEX application whose alias matches the ORDS module name must exist.
+### install-packages.sql
 
-The APEX application alias “sampleserver” must be created in order to run this sample application.
+Creates the following packages:
+
+- `OJ_MCP_APP_SERVER`
+- `OJ_MCP_APP_UTILS`
+- `OJ_MCP_JSONRPC_UTILS`
+
+### install-sampleserver.sql
+
+- ORDS REST module `sampleserver`
+- PL/SQL functions
+  - `get_schema`
+  - `run_sql`
+  - `get_current_user`
+- UC_AI tool definitions for the PL/SQL functions
+- UI resources for tool `get_current_user`
+
+## Requirements for Running the Sample Server
+
+**The APEX workspace name must match the ORDS alias.**
+
+In most configurations, APEX workspace name and ORDS alias are identical.
+
+**The URI prefix must be the module name enclosed in "/".**
+
+The ORDS REST module `sampleserver` will be created with the following prefix: /sampleserver/
+
+**An APEX application whose alias matches the ORDS module name must exist.**
+
+Create an APEX application with the alias: sampleserver
+
+### Related blog articles
+
+All articles are written in Japanese.
+
+- [UC_AIで定義したツールをリモートMCPサーバーのツールとして使用する](https://apexugj.blogspot.com/2026/03/use-uc-ai-tools-on-a-remote-mcp-server.html)
+
+All scripts in this article are updated and are contained in this repository.
+
+- [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Oracle Linux 10編](https://apexugj.blogspot.com/2026/02/configure-reverse-proxy-using-nginx-for-apex-and-ords.html)
+
+- [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Ubuntu 24.04編](https://apexugj.blogspot.com/2025/12/building-oracle-apex-on-ubuntu.html)
+
+- [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - 追加手順](https://apexugj.blogspot.com/2026/02/building-oracle-apex-appendix.html)
+
+- [Role based JWT profileで保護したORDS REST APIにアクセスする - Microsoft Entra ID編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-chatgpt-and-claude-with-entraid.html)
+
+- [Role based JWT profileで保護したORDS REST APIにアクセスする - Okta Integrator編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-okta.html)
+
+- [Role based JWT profileで保護したORDS REST APIにアクセスする - Auth0編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-auth0.html)
+
+- [Role based JWT profileで保護したORDS REST APIにアクセスする - Oracle IAM編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-oracle-iam.html)
+
+- [Autonomous AI Database向けNGINXリバース・プロキシの作成](https://apexugj.blogspot.com/2026/03/remote-mcp-server-on-top-of-ords-with-autonomous-database-19c.html)
+
+- [MCPを話すOracle Databaseを作成する](https://apexugj.blogspot.com/2026/03/create-oracle-database-that-supports-mcp.html)
+
+- [MCP AppをOracle DatabaseとOracle REST Data Servicesで実装する](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
