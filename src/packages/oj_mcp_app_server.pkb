@@ -374,6 +374,7 @@ as
         l_response_json json_object_t;
         l_error_json    json_object_t;
     begin
+        uc_ai_logger.log_info('resources_read is called with parameters: ' || p_params, l_scope);
         /*
          * uri parameter is mandatory; therefore, p_params must not be NULL.
          */
@@ -424,6 +425,7 @@ as
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
+        uc_ai_logger.log_info('Resource read successfully for uri ' || l_uri || '. Result: ' || p_result, l_scope);
     exception
         when others then
             l_error_json := json_object_t();
