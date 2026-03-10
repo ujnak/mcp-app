@@ -67,13 +67,21 @@ The ORDS REST module `sampleserver` will be created with the following prefix: /
 
 Create an APEX application with the alias: sampleserver
 
-### Related blog articles
+## Related blog articles
 
 All articles are written in Japanese.
 
-- [UC_AIで定義したツールをリモートMCPサーバーのツールとして使用する](https://apexugj.blogspot.com/2026/03/use-uc-ai-tools-on-a-remote-mcp-server.html)
+### MCP App hosting environment
 
 All scripts in this article are updated and are contained in this repository.
+
+- [UC_AIで定義したツールをリモートMCPサーバーのツールとして使用する](https://apexugj.blogspot.com/2026/03/use-uc-ai-tools-on-a-remote-mcp-server.html)
+
+- [MCPを話すOracle Databaseを作成する](https://apexugj.blogspot.com/2026/03/create-oracle-database-that-supports-mcp.html)
+
+- [MCP AppをOracle DatabaseとOracle REST Data Servicesで実装する](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
+
+### Support for OpenID Connect by nginx reverse proxy
 
 - [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Oracle Linux 10編](https://apexugj.blogspot.com/2026/02/configure-reverse-proxy-using-nginx-for-apex-and-ords.html)
 
@@ -90,7 +98,3 @@ All scripts in this article are updated and are contained in this repository.
 - [Role based JWT profileで保護したORDS REST APIにアクセスする - Oracle IAM編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-oracle-iam.html)
 
 - [Autonomous AI Database向けNGINXリバース・プロキシの作成](https://apexugj.blogspot.com/2026/03/remote-mcp-server-on-top-of-ords-with-autonomous-database-19c.html)
-
-- [MCPを話すOracle Databaseを作成する](https://apexugj.blogspot.com/2026/03/create-oracle-database-that-supports-mcp.html)
-
-- [MCP AppをOracle DatabaseとOracle REST Data Servicesで実装する](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
