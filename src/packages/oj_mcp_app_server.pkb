@@ -80,12 +80,12 @@ as
 
         /* resources for MCP App support */
         l_resources_json := json_object_t();
-        l_resources_json.put('listChanged', false);
+        l_resources_json.put('listChanged', true);
         l_capabilities_json.put('resources', l_resources_json);
 
         /* tools support */
         l_tools_json := json_object_t();
-        l_tools_json.put('listChanged', false);
+        l_tools_json.put('listChanged', true);
         l_capabilities_json.put('tools', l_tools_json);
 
         /*
