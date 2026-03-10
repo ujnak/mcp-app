@@ -11,6 +11,7 @@ This implementation is intended for experimentation and reference purposes.
 - MCP Inspector v0.21.1: YES
 - OpenAI ChatGPT (Web + Developer Mode): YES
 - Claude 1.1.5749 (ecf3d9) 2026-03-08T18:23:37.000Z: NO
+- Goose 1.27.2 + LM Studio 0.4.6+1 (openai/gpt-oss-20b): YES
 
 ## Mandatory components
 
