@@ -1,0 +1,10 @@
+@ords/ORDS_REST_APEXDEV_sampleserver.sql
+@ords/unprotect-sampleserver.sql
+
+@src/tools/deregister_tools.sql
+@src/tools/get_schema.sql
+@src/tools/run_sql.sql
+@src/tools/get_current_user.sql
+
+@src/resources/get_current_user.sql
+@src/resources/update-ui-get-current-user.sql
