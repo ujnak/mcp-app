@@ -33,7 +33,6 @@ begin
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="mcp-app-width" content="1140">
   <title>Current User</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -81,6 +80,7 @@ begin
     button:hover:not(:disabled) { background: #1d4ed8; }
     button:disabled { background: #93c5fd; cursor: not-allowed; }
   </style>
+  <meta name="mcp-app-width" content="1140">
 </head>
 <body>
   <div class="card">

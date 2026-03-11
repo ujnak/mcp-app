@@ -1,5 +1,6 @@
 create or replace package oj_mcp_app_utils
 as
+
 /**
  * Set APEX and Logger log level from  MCP log level.
  *
@@ -36,6 +37,30 @@ procedure set_log_level(
 function negoticate_client_server_capabilities(
     p_client_capabilities_json in json_object_t
 ) return json_object_t;
+
+/**
+ * Update text in OJ_MCP_APP_RESOURCES by HTML bundle generated from APEX page definition.
+ * 
+ * Example:
+begin
+oj_mcp_app_utils.update_app_text_from_apex_page(
+    p_resource_name => 'get_current_user',
+    p_resource_uri  => 'ui://get-current-user/mcp-app.html',
+    p_application_alias => 'sampleserver',
+    p_page_alias => 'get-current-user',
+    p_workspace => 'apexdev',
+    p_apex_path => 'http://host.docker.internal:8181/ords/r'
+);
+end;
+ */
+procedure update_app_text_from_apex_page(
+    p_resource_name         in varchar2,
+    p_resource_uri          in varchar2,
+    p_application_alias     in varchar2,
+    p_page_alias            in varchar2,
+    p_workspace             in varchar2,
+    p_apex_path             in varchar2         
+);
 
 end oj_mcp_app_utils;
 /
