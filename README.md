@@ -6,13 +6,6 @@ This repository provides an experimental implementation of an MCP App running on
 
 This implementation is intended for experimentation and reference purposes.
 
-## Verification Status
-
-- MCP Inspector v0.21.1: YES, OpenID Connect
-- OpenAI ChatGPT (Web + Developer Mode): YES, OpenID Connect
-- Claude 1.1.5749 (ecf3d9) 2026-03-08T18:23:37.000Z: YES, OpenID Connect (_meta.ui.csp is required)
-- Goose 1.27.2 + LM Studio 0.4.6+1 (openai/gpt-oss-20b): YES, No Auth
-
 ## Mandatory components
 
 - Oracle Database (19c or 26ai)
@@ -31,6 +24,26 @@ This implementation is intended for experimentation and reference purposes.
 - nginx
 
     configuration files for nginx to support OpenID Connect
+
+## Verification Status
+
+| Client          | Version                 | OS                 | Worked?  | Auth |
+|-----------------|-------------------------|--------------------|----------|------|
+| MCP Inspector   | v0.21.1                 | macOS Tahoe 26.3.1 | Yes      | Yes  |
+| ChatGPT Desktop | 1.2026.048 (1771630681) | macOS Tahoe 26.3.1 | Yes      | Yes  |
+| ChatGPT App     | 1.2026.062              | iOS 26.3.1         | Yes      | Yes  |
+| ChatGPT App     | 1.2026.062              | iPadOS 26.3.1      | Yes      | Yes  |
+| chatgpt.com     |                         |                    | Yes      | Yes  |     
+| Claude Desktop  | 1.1.6041 (62e193)       | macOS Tahoe 26.3.1 | Yes      | Yes  |
+| Claude App      | 1.260309.1              | iPadOS 26.3.1      | No       |      | 
+| Claude App      | 1.260309.1              | iOS 26.3.1         | No       |      |
+| claude.ai       |                         |                    | No       |      |
+| Goose           | 1.27.2 (1.27.2)         | macOS Tahoe 26.3.1 | Yes      | N/A  |
+
+- Microsoft Entra ID is used for authentication via OpenID Connect. 
+- The ChatGPT application must be registered and authenticated on chatgpt.com, with Developer Mode enabled.
+- Verification of authentication using OpenID Connect will be conducted against Autonomous AI Database.
+- Once the connection is established as ChatGPT App, re-authentication is not required even if the platform differs (e.g., iPhone and iPad).
 
 ## Installation
 
