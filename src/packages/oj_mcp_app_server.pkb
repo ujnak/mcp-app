@@ -33,6 +33,7 @@ as
         l_id varchar2(128);
         l_si json_object_t;
     begin
+        uc_ai_logger.log_info('params received: ' || p_params, l_scope);
         /*
          * Capabilities are determined based on the parameters sent by the client.
          */
@@ -72,37 +73,8 @@ as
             l_client_protocol_version := '2025-11-25';
         end if; 
 
-        /* construct negosiated capabilities */
-        l_capabilities_json := json_object_t();
-
-        /* logging is always provided. */
-        l_capabilities_json.put('logging', json_object_t());
-
-        /* resources for MCP App support */
-        l_resources_json := json_object_t();
-        l_resources_json.put('listChanged', true);
-        l_capabilities_json.put('resources', l_resources_json);
-
-        /* tools support */
-        l_tools_json := json_object_t();
-        l_tools_json.put('listChanged', true);
-        l_capabilities_json.put('tools', l_tools_json);
-
-        /*
-         * This server supports MCP App; therefore, include "io.modelcontextprotocol/ui"
-         * in the extensions regardless of client declaration.
-　　      */
-        l_client_extensions_json := l_client_capabilities_json.get_object('extensions');
-        if l_client_extensions_json is not null then
-            if l_client_extensions_json.get_object('io.modelcontextprotocol/ui') is not null then
-                l_capabilities_json.put('extensions',  l_client_extensions_json);
-                uc_ai_logger.log_info('MCP App extension declared by client' || l_client_extensions_json.to_clob(), l_scope);
-            else
-                l_client_extensions_json := json_object_t('{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}');
-                l_capabilities_json.put('extensions',  l_client_extensions_json);
-                uc_ai_logger.log_info('MCP App extension added by server.', l_scope);
-            end if;
-        end if;
+        /* negotiate capabilities with the client. */
+        l_capabilities_json := oj_mcp_app_utils.negoticate_client_server_capabilities(l_client_capabilities_json);
 
         p_status_code := 200;
         p_error := null;
@@ -113,7 +85,7 @@ as
         l_result_json.put('capabilities',    l_capabilities_json);
         l_result_json.put('serverInfo', json_object_t('{ "name": "' || p_context || '", "version": "0.1.0" }'));
         p_result := l_result_json.to_clob();
-        uc_ai_logger.log_info('capabilities determined by the server ' || p_result, l_scope);
+        uc_ai_logger.log_info('result: ' || p_result, l_scope);
     end initialize;
 
     procedure notifications_initialized(

@@ -27,5 +27,15 @@ procedure set_log_level(
     p_log_level in varchar2
 );
 
+/**
+ * Client Server capability negotiation.
+ *
+ * @param p_client_capabilities_json JSON object containing capabilities sent by the client.
+ * @return JSON object containing the server's capabilities to be sent back to the client.
+ */
+function negoticate_client_server_capabilities(
+    p_client_capabilities_json in json_object_t
+) return json_object_t;
+
 end oj_mcp_app_utils;
 /

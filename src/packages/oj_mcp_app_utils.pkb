@@ -60,5 +60,70 @@ as
         end if;
     end set_log_level;
 
+    /**
+     * Client Server capability negotiation.
+     */
+    function negoticate_client_server_capabilities(
+        p_client_capabilities_json in json_object_t
+    ) return json_object_t
+    as
+        l_scope uc_ai_logger.scope := gc_scope_prefix || 'negoticate_client_server_capabilities';
+        l_server_capabilities_json json_object_t;
+        l_resources_json           json_object_t;
+        l_tools_json               json_object_t;
+        l_client_extensions_json   json_object_t;
+    begin
+        uc_ai_logger.log_info('client capabilities: ' || p_client_capabilities_json.to_clob(), l_scope);
+
+        /* construct negosiated capabilities */
+        l_server_capabilities_json := json_object_t();
+
+        /*
+         * logging is always provided.
+         * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging#capabilities
+         */
+        l_server_capabilities_json.put('logging', json_object_t());
+
+        /* 
+         * resources for MCP App support
+         * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/resources#capabilities
+         */
+        l_resources_json := json_object_t();
+        l_resources_json.put('subscribe', true);
+        l_resources_json.put('listChanged', true);
+        l_server_capabilities_json.put('resources', l_resources_json);
+
+        /*
+         * tools support
+         * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/tools#capabilities
+         */
+        l_tools_json := json_object_t();
+        l_tools_json.put('listChanged', true);
+        l_server_capabilities_json.put('tools', l_tools_json);
+
+        /*
+         * Clients that support the MCP App include the following entry in the capabilities.extensions field.
+         * Ref: https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#clientserver-capability-negotiation
+         *
+         * "extensions": {
+         *     "io.modelcontextprotocol/ui": {
+         *         "mimeTypes": ["text/html;profile=mcp-app"]
+         *     }
+         * }
+         *
+         * Only text/html;profile=mcp-app is supported as a UI mimeType. Therefore, validation of the mimeType is necessary;
+         * however, it is omitted in the current implementation.
+　　      */
+        l_client_extensions_json := p_client_capabilities_json.get_object('extensions');
+        if l_client_extensions_json is not null then
+            if l_client_extensions_json.get_object('io.modelcontextprotocol/ui') is not null then
+                l_server_capabilities_json.put('extensions',  l_client_extensions_json);
+            end if;
+        end if;
+
+        uc_ai_logger.log_info('server capabilities: ' || l_server_capabilities_json.to_clob(), l_scope);
+        return l_server_capabilities_json;
+    end negoticate_client_server_capabilities;
+
 end oj_mcp_app_utils;
 /
