@@ -28,7 +28,9 @@ declare
         'drop package oj_mcp_jsonrpc_utils',
         'drop view oj_mcp_uc_ai_tools',
         'drop table oj_mcp_tools_extras',
-        'drop table oj_mcp_app_resources'
+        'drop table oj_mcp_ui_permissions',
+        'drop table oj_mcp_ui_csp_domains',
+        'drop table oj_mcp_ui_resources'
     );
     e_obj_not_exist EXCEPTION;
     e_tbl_not_exist EXCEPTION;
