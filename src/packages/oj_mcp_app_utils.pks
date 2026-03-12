@@ -66,6 +66,15 @@ function generate_array_for_list_tools(
 return json_array_t;
 
 /**
+ * Generate JSON array of content for tools/call.
+ */
+function generate_array_for_tools_call(
+    p_name in varchar2,
+    p_args in json_object_t
+)
+return json_array_t;
+
+/**
  * Generate JSON array of resources for responses/list.
  *
  * Specify in p_content the tags used to restrict the resources included in the list.

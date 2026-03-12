@@ -161,14 +161,12 @@ as
     as
         l_scope uc_ai_logger.scope := gc_scope_prefix || 'tools_call';
 
-        l_params json_object_t;
-        l_name varchar2(128);
-        l_args_obj json_object_t;
-        l_out clob;
-        l_result_json json_object_t;
+        l_params      json_object_t;
+        l_name        varchar2(128);
+        l_args_obj    json_object_t;
         l_content_arr json_array_t;
-        l_out_obj json_object_t;
-        l_error_json    json_object_t;
+        l_result_json json_object_t;
+        l_error_json  json_object_t;
     begin
         /*
          * name parameter is mandatory; therefore, p_params must not be NULL.
@@ -206,15 +204,8 @@ as
         /*
          * Execute Tool.
          */
-        l_out := uc_ai_tools_api.execute_tool(l_name, l_args_obj);
-        /* Format output.  */
+        l_content_arr := oj_mcp_app_utils.generate_array_for_tools_call(l_name, l_args_obj);
         l_result_json := json_object_t();
-        l_content_arr := json_array_t();
-        l_out_obj     := json_object_t();
-        l_out_obj.put('type', 'text');
-        l_out_obj.put('text', l_out);
-        /* put tool output to content array */
-        l_content_arr.append(l_out_obj);
         l_result_json.put('content', l_content_arr);
         l_result_json.put('isError', false);
         p_result := l_result_json.to_clob();
