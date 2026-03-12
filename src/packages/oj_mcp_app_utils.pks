@@ -15,6 +15,7 @@ as
  * DEBUG(16) and TIMING
  *
  * MCP Inspector | APEX     | Logger
+ * --------------|----------|----------------
  * debug         | trace(6) | DEBUG(16)
  * info          | info(4)  | INFORMATION(8)
  * notice        | warn(2)  | WARNING(4)
@@ -34,33 +35,52 @@ procedure set_log_level(
  * @param p_client_capabilities_json JSON object containing capabilities sent by the client.
  * @return JSON object containing the server's capabilities to be sent back to the client.
  */
-function negoticate_client_server_capabilities(
+function negotiate_client_server_capabilities(
     p_client_capabilities_json in json_object_t
 ) return json_object_t;
 
 /**
- * Update text in OJ_MCP_APP_RESOURCES by HTML bundle generated from APEX page definition.
+ * Update text in OJ_MCP_UI_RESOURCES by HTML bundle generated from APEX page definition.
  * 
  * Example:
 begin
 oj_mcp_app_utils.update_app_text_from_apex_page(
     p_resource_name => 'get_current_user',
     p_resource_uri  => 'ui://get-current-user/mcp-app.html',
-    p_application_alias => 'sampleserver',
-    p_page_alias => 'get-current-user',
-    p_workspace => 'apexdev',
-    p_apex_path => 'http://host.docker.internal:8181/ords/r'
+    p_page_url      => 'http://host.docker.internal:8181/ords/r/apexdev/sampleserver/get-current-user'
 );
 end;
  */
 procedure update_app_text_from_apex_page(
     p_resource_name         in varchar2,
     p_resource_uri          in varchar2,
-    p_application_alias     in varchar2,
-    p_page_alias            in varchar2,
-    p_workspace             in varchar2,
-    p_apex_path             in varchar2         
+    p_page_url              in varchar2
 );
+
+/**
+ * Generate JSON array of tools for tools/list.
+ */
+function generate_array_for_list_tools(
+    p_context in varchar2
+)
+return json_array_t;
+
+/**
+ * Generate JSON array of resources for responses/list.
+ *
+ * Specify in p_content the tags used to restrict the resources included in the list.
+ */
+function generate_array_for_list_ui_resources(
+    p_context in varchar2
+)
+return json_array_t;
+
+/** 
+ * Generate JSON array contents for resources/read.
+ */
+function generate_array_for_read_ui_resource(
+    p_uri in oj_mcp_ui_resources.uri%type
+) return json_array_t;
 
 end oj_mcp_app_utils;
 /

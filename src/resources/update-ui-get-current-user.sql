@@ -192,7 +192,7 @@ begin
 </body>
 </html>~';
 
-    update oj_mcp_app_resources set text = l_text where id = (
+    update oj_mcp_ui_resources set text = l_text where id = (
         select resource_id from oj_mcp_uc_ai_tools where code = 'get_current_user'
     );
     commit;

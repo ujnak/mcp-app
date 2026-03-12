@@ -19,21 +19,11 @@ as
         l_params            json_object_t;
         l_client_protocol_version  varchar2(32);
         l_client_capabilities_json json_object_t;
-        l_client_extensions_json   json_object_t;
         l_capabilities_json json_object_t;
-        l_resources_json    json_object_t;
-        l_tools_json        json_object_t;
-        l_roots_json        json_object_t;
         l_error_json        json_object_t;
-
-        l_request_json json_object_t;
         l_result_json  json_object_t;
-        l_response clob;
-        l_response_json json_object_t;
-        l_id varchar2(128);
-        l_si json_object_t;
     begin
-        uc_ai_logger.log_info('params received: ' || p_params, l_scope);
+        uc_ai_logger.log_info('params: ' || p_params, l_scope);
         /*
          * Capabilities are determined based on the parameters sent by the client.
          */
@@ -69,12 +59,12 @@ as
          */
         l_client_protocol_version  := l_params.get_string('protocolVersion');
         if l_client_protocol_version is null then
-            uc_ai_logger.log_info('protocolVersion sent by the client: ' || l_client_protocol_version, l_scope);
+            uc_ai_logger.log_info('No protocolVersion set by the client', l_scope);
             l_client_protocol_version := '2025-11-25';
-        end if; 
+        end if;
 
         /* negotiate capabilities with the client. */
-        l_capabilities_json := oj_mcp_app_utils.negoticate_client_server_capabilities(l_client_capabilities_json);
+        l_capabilities_json := oj_mcp_app_utils.negotiate_client_server_capabilities(l_client_capabilities_json);
 
         p_status_code := 200;
         p_error := null;
@@ -138,55 +128,26 @@ as
     as
         l_scope uc_ai_logger.scope := gc_scope_prefix || 'tools_list';
 
-        l_tool_json json_object_t;
-        l_tools_arr json_array_t;
+        l_tools_arr   json_array_t;
         l_result_json json_object_t;
-        /* MCP App resource _meta data */
-        l_meta     json_object_t;
-        l_meta_uri json_object_t;
+        l_error_json  json_object_t;
     begin
-        /*
-         * Reuse the UC_AI tool definition.
-         * view oj_mcp_uc_ai_tools additionally has output_schema and resource_id for MCP App support.
-         */
-        l_tools_arr := json_array_t();
-        for r in (
-            select
-                t.code tool_name, t.description description, t.response_schema parameters
-                ,t.output_schema output_schema, r.resource_uri resource_uri
-            from oj_mcp_uc_ai_tools t 
-                join uc_ai_tool_tags g on t.id = g.tool_id
-                left outer join oj_mcp_app_resources r on t.resource_id = r.id
-            where g.tag_name = lower(p_context)
-        )
-        loop
-            l_tool_json := json_object_t();
-            l_tool_json.put('name', r.tool_name);
-            l_tool_json.put('description', r.description);
-            if r.parameters is not null then
-                l_tool_json.put('inputSchema', json_object_t(r.parameters));
-            end if;
-            if r.output_schema is not null then
-                l_tool_json.put('outputSchema', json_object_t(r.output_schema));
-            end if;
-            /*
-             * MCP tool which has a resourceUri.
-             */
-            if r.resource_uri is not null then
-                l_meta     := json_object_t();
-                l_meta_uri := json_object_t();
-                l_meta_uri.put('resourceUri', r.resource_uri);
-                l_meta.put('ui', l_meta_uri);
-                l_meta.put('ui/resourceUri', r.resource_uri);
-                l_tool_json.put('_meta', l_meta);
-            end if;
-            l_tools_arr.append(l_tool_json);
-        end loop;
+        uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
+        l_tools_arr := oj_mcp_app_utils.generate_array_for_list_tools(p_context);
         l_result_json := json_object_t();
         l_result_json.put('tools', l_tools_arr);
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
+        uc_ai_logger.log_info('result: ' || p_result, l_scope);
+    exception
+        when others then
+            l_error_json := json_object_t();
+            l_error_json.put('code', C_INTERNAL_ERROR);
+            l_error_json.put('message', 'Error in tools_list: ' || sqlerrm);
+            p_error := l_error_json.to_clob();
+            p_result := null;
+            p_status_code := 500;
     end tools_list;
 
     procedure tools_call(
@@ -204,12 +165,9 @@ as
         l_name varchar2(128);
         l_args_obj json_object_t;
         l_out clob;
-        l_meta     json_object_t;
-        l_meta_uri json_object_t;
         l_result_json json_object_t;
         l_content_arr json_array_t;
         l_out_obj json_object_t;
-        l_response_json json_object_t;
         l_error_json    json_object_t;
     begin
         /*
@@ -249,7 +207,7 @@ as
          * Execute Tool.
          */
         l_out := uc_ai_tools_api.execute_tool(l_name, l_args_obj);
-        /* Format outout.  */
+        /* Format output.  */
         l_result_json := json_object_t();
         l_content_arr := json_array_t();
         l_out_obj     := json_object_t();
@@ -258,21 +216,6 @@ as
         /* put tool output to content array */
         l_content_arr.append(l_out_obj);
         l_result_json.put('content', l_content_arr);
-        /* add _meta if tool has a resourceUri for MCP App support */
-        for r in (
-            select r.resource_uri
-            from oj_mcp_uc_ai_tools t join oj_mcp_app_resources r on t.resource_id = r.id
-            where t.code = l_name
-        )
-        loop
-            /* only a maximum of one row is selected. */
-            l_meta     := json_object_t();
-            l_meta_uri := json_object_t();
-            l_meta_uri.put('resourceUri', r.resource_uri);
-            l_meta.put('ui', l_meta_uri);
-            l_meta.put('ui/resourceUri', r.resource_uri);
-            l_result_json.put('_meta', l_meta);
-        end loop;
         l_result_json.put('isError', false);
         p_result := l_result_json.to_clob();
         p_error := null;
@@ -298,31 +241,26 @@ as
     as
         l_scope uc_ai_logger.scope := gc_scope_prefix || 'resources_list';
 
-        l_resource_json json_object_t;
         l_resources_arr json_array_t;
-        l_input_schema_json json_object_t;
-        l_result_json json_object_t;
+        l_result_json   json_object_t;
+        l_error_json    json_object_t;
     begin
-        l_resources_arr := json_array_t();
-        for r in (
-            select resource_name, resource_uri, mime_type
-            from oj_mcp_uc_ai_tools t
-                join oj_mcp_app_resources r on t.resource_id = r.id
-                join uc_ai_tool_tags g on t.id = g.tool_id
-            where g.tag_name = lower(p_context)
-        )
-        loop
-            l_resource_json := json_object_t();
-            l_resource_json.put('name',     r.resource_name);
-            l_resource_json.put('uri',      r.resource_uri);
-            l_resource_json.put('mimeType', r.mime_type);
-            l_resources_arr.append(l_resource_json);
-        end loop;
+        uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
+        l_resources_arr := oj_mcp_app_utils.generate_array_for_list_ui_resources(p_context);
         l_result_json := json_object_t();
         l_result_json.put('resources', l_resources_arr);
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
+        uc_ai_logger.log_info('result: ' || p_result, l_scope);
+    exception
+        when others then
+            l_error_json := json_object_t();
+            l_error_json.put('code', C_INTERNAL_ERROR);
+            l_error_json.put('message', 'Error in resources_list: ' || sqlerrm);
+            p_error := l_error_json.to_clob();
+            p_result := null;
+            p_status_code := 500;
     end resources_list;
 
     procedure resources_read(
@@ -338,12 +276,8 @@ as
 
         l_params json_object_t;
         l_uri varchar2(128);
-        l_out clob;
         l_result_json  json_object_t;
         l_contents_arr json_array_t;
-        l_resource     json_object_t;
-        l_out_obj json_object_t;
-        l_response_json json_object_t;
         l_error_json    json_object_t;
     begin
         uc_ai_logger.log_info('resources_read is called with parameters: ' || p_params, l_scope);
@@ -377,22 +311,10 @@ as
             return;
         end if;
         /*
-         * Read resource.
+         * Build contents for resourceUri
          */
-        l_contents_arr := json_array_t();
-        for r in (
-            select resource_uri, mime_type, text from oj_mcp_app_resources
-            where resource_uri = l_uri
-        )
-        loop
-            l_resource := json_object_t();
-            l_resource.put('uri',      r.resource_uri);
-            l_resource.put('mimeType', r.mime_type);
-            l_resource.put('text',     r.text);
-            /* Although it should not be written directly, for the time being. */
-            l_resource.put('_meta', json_object_t('{ "ui": { "csp": { "resourceDomains": ["https://cdn.jsdelivr.net"] }}}'));
-            l_contents_arr.append(l_resource);
-        end loop;
+        l_contents_arr := oj_mcp_app_utils.generate_array_for_read_ui_resource(l_uri);
+
         /* Format outout.  */
         l_result_json := json_object_t();
         l_result_json.put('contents', l_contents_arr);
@@ -470,7 +392,6 @@ as
         l_ords_module_name user_ords_modules.name%type;
         l_apex_app_id      apex_applications.application_id%type;
         l_apex_page_id     apex_application_pages.page_id%type;
-        l_session_id       varchar2(128);
         /*
          * MCP method invocation.
          */
@@ -505,7 +426,7 @@ as
         end;
 
         /*
-         * Assume ORDS moule name as APEX application alias then get app_id and page_id.
+         * Assume ORDS module name as APEX application alias then get app_id and page_id.
          */
         begin
             select application_id into l_apex_app_id from apex_applications
