@@ -101,6 +101,8 @@ All scripts in this article are updated and are contained in this repository.
 
 - [MCP AppをOracle DatabaseとOracle REST Data Servicesで実装する](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
 
+- [APEXアプリケーションのページ生成をMCP Appの簡易バンドラとして利用する](https://apexugj.blogspot.com/2026/03/generate-ui-resources-bundle-from-apex-page.html)
+
 ### Support for OpenID Connect by nginx reverse proxy
 
 - [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Oracle Linux 10編](https://apexugj.blogspot.com/2026/02/configure-reverse-proxy-using-nginx-for-apex-and-ords.html)
