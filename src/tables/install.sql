@@ -149,7 +149,7 @@ select
     t.response_schema      response_schema,
     t.version              version,
     t.function_call        function_call,
-    t.authorization_schema authorization_chema,
+    t.authorization_schema authorization_schema,
     t.created_by           created_by,
     t.created_at           created_at,
     t.updated_by           updated_by,

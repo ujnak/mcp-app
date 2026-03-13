@@ -51,7 +51,9 @@ This implementation is intended for experimentation and reference purposes.
 
 Creates:
 
-- table `OJ_MCP_APP_RESOURCES`
+- table `OJ_MCP_UI_RESOURCES`
+- table `OJ_MCP_UI_CSP_DOMAINS`
+- table `OJ_MCP_UI_PERMMISSIONS`
 - table `OJ_MCP_TOOLS_EXTRAS`
 - view `OJ_MCP_UC_AI_TOOLS`
 
