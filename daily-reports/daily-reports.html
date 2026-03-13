@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap');
+  :root { --ink:#1a1a2e; --paper:#f5f0e8; --accent:#c0392b; --rule:#c8bfae; --muted:#7a7060; --highlight:#fff8e7; --shadow:rgba(26,26,46,0.12); --green:#27ae60; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Noto Serif JP',serif; background:var(--paper); color:var(--ink); min-height:100vh; padding:0; overflow-x:hidden; }
+  .header { background:var(--ink); color:var(--paper); padding:18px 28px 14px; display:flex; align-items:baseline; gap:14px; border-bottom:3px solid var(--accent); }
+  .header-label { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--rule); white-space:nowrap; }
+  .header-title { font-size:20px; font-weight:600; letter-spacing:0.04em; }
+  .container { max-width:720px; margin:0 auto; padding:32px 24px 48px; }
+  .edit-form { display:flex; flex-direction:column; gap:16px; background:white; border:1px solid var(--rule); border-top:3px solid var(--green); padding:24px 28px; box-shadow:4px 4px 0 var(--shadow); margin-bottom:24px; }
+  .edit-form-row { display:flex; gap:14px; flex-wrap:wrap; }
+  .edit-form-row .field { flex:1; min-width:160px; }
+  .field { display:flex; flex-direction:column; gap:5px; }
+  .field label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+  .field input,.field textarea { font-family:'Noto Serif JP',serif; font-size:14px; padding:8px 12px; border:1px solid var(--rule); background:white; color:var(--ink); border-radius:2px; outline:none; transition:border-color 0.2s; min-width:140px; }
+  .field input:focus,.field textarea:focus { border-color:var(--ink); }
+  .field textarea { resize:vertical; min-height:90px; width:100%; }
+  .field.full { width:100%; }
+  .field.full input,.field.full textarea { width:100%; }
+  .btn { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; padding:9px 20px; border:none; border-radius:2px; cursor:pointer; transition:background 0.2s,transform 0.1s; white-space:nowrap; }
+  .btn:active { transform:scale(0.97); }
+  .btn:disabled { background:var(--rule); cursor:not-allowed; }
+  .btn-save { background:var(--green); color:white; }
+  .btn-save:hover:not(:disabled) { background:#219a52; }
+  .btn-load { background:var(--ink); color:var(--paper); font-size:10px; padding:8px 14px; }
+  .btn-load:hover:not(:disabled) { background:#2c2c4a; }
+  .btn-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .state-box { padding:28px 24px; text-align:center; }
+  .state-icon { font-size:36px; margin-bottom:10px; display:block; }
+  .state-title { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  .state-message { font-size:13px; color:var(--muted); line-height:1.6; }
+  .state-box.error .state-title { color:var(--accent); }
+  .state-box.success .state-title { color:var(--green); }
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--ink); color:var(--paper); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.1em; padding:12px 20px; border-radius:2px; border-left:3px solid var(--green); opacity:0; transform:translateY(10px); transition:opacity 0.3s,transform 0.3s; pointer-events:none; z-index:100; }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.error { border-left-color:var(--accent); }
+  .spinner { width:28px; height:28px; border:2px solid var(--rule); border-top-color:var(--ink); border-radius:50%; animation:spin 0.7s linear infinite; margin:0 auto 12px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="header">
+  <span class="header-label">MCP Tool</span>
+  <span class="header-title">Daily Report</span>
+</div>
+<div class="container">
+  <div class="edit-form">
+    <div class="edit-form-row">
+      <div class="field"><label>Report Date *</label><input type="date" id="editDate"></div>
+      <div class="field"><label>Employee Name</label><input type="text" id="editEmployee" placeholder="omit to use session user"></div>
+      <button class="btn btn-load" id="btnLoad" disabled>Load</button>
+    </div>
+    <div class="field full"><label>Summary *</label><textarea id="editSummary" rows="4" placeholder="Summary of the day..."></textarea></div>
+    <div class="field full"><label>Tomorrow's Plan</label><textarea id="editTomorrow" rows="3" placeholder="Tomorrow's plan..."></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-save" id="btnSave" disabled>Save</button>
+      <span id="editStatus" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);">Initializing...</span>
+    </div>
+  </div>
+  <div id="editResult"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script type="module">
+  import { App } from "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.1.2/+esm";
+
+  const app = new App({ name: "Daily Report", version: "1.0.0" });
+
+  // connect() 完了前のホストからのエラーを握り潰す（get_current_user と同パターン）
+  app.onerror = (_err) => { /* intentionally ignored during init */ };
+
+  // ---- helpers ----
+
+  function parseData(result) {
+    return result.structuredContent
+      ?? (() => {
+           try { return JSON.parse(result.content?.find(c => c.type === "text")?.text ?? "{}"); }
+           catch { return null; }
+         })();
+  }
+
+  function errorMessage(result) {
+    return result.content?.find(c => c.type === "text")?.text ?? "Unknown error";
+  }
+
+  function showToast(msg, isError) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = "toast show" + (isError ? " error" : "");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove("show"), 3000);
+  }
+
+  function setStatus(msg) { document.getElementById("editStatus").textContent = msg; }
+
+  function setLoading() {
+    document.getElementById("editResult").innerHTML =
+      '<div class="state-box"><div class="spinner"></div><div class="state-title">Processing</div></div>';
+  }
+
+  function setButtons(disabled) {
+    document.getElementById("btnLoad").disabled = disabled;
+    document.getElementById("btnSave").disabled = disabled;
+  }
+
+  async function loadForEdit() {
+    const dateVal = document.getElementById("editDate").value;
+    const empVal  = document.getElementById("editEmployee").value.trim();
+    if (!dateVal) { showToast("Please select a date.", true); return; }
+
+    setButtons(true);
+    setStatus("Loading...");
+    setLoading();
+
+    const args = { reportDate: dateVal };
+    if (empVal) args.employeeName = empVal;
+
+    try {
+      const result = await app.callServerTool({ name: "view_daily_report", arguments: args });
+      document.getElementById("editResult").innerHTML = "";
+
+      if (result.isError) {
+        setStatus("");
+        showToast(errorMessage(result), true);
+        return;
+      }
+
+      const data = parseData(result);
+      if (data && !data.error) {
+        document.getElementById("editSummary").value  = data.summary      || "";
+        document.getElementById("editTomorrow").value = data.tomorrowPlan || "";
+        setStatus("Loaded existing report.");
+        showToast("Loaded existing report.");
+      } else {
+        document.getElementById("editSummary").value  = "";
+        document.getElementById("editTomorrow").value = "";
+        setStatus("No existing report — will create new.");
+        showToast("No existing report — will create new.");
+      }
+    } catch (e) {
+      document.getElementById("editResult").innerHTML = "";
+      setStatus("");
+      showToast(e.message || "Load failed.", true);
+    } finally {
+      setButtons(false);
+    }
+  }
+
+  async function saveReport() {
+    const dateVal  = document.getElementById("editDate").value;
+    const empVal   = document.getElementById("editEmployee").value.trim();
+    const summary  = document.getElementById("editSummary").value.trim();
+    const tomorrow = document.getElementById("editTomorrow").value.trim();
+
+    if (!dateVal) { showToast("Report Date is required.", true); return; }
+    if (!summary) { showToast("Summary is required.", true); return; }
+
+    setButtons(true);
+    setStatus("Saving...");
+    setLoading();
+
+    const args = { reportDate: dateVal, summary };
+    if (empVal)   args.employeeName = empVal;
+    if (tomorrow) args.tomorrowPlan = tomorrow;
+
+    try {
+      const result = await app.callServerTool({ name: "update_daily_report", arguments: args });
+
+      if (result.isError) {
+        document.getElementById("editResult").innerHTML =
+          '<div class="state-box error"><span class="state-icon">&#x26A0;&#xFE0F;</span>'
+          + '<div class="state-title">Tool Error</div>'
+          + '<div class="state-message">' + esc(errorMessage(result)) + '</div></div>';
+        setStatus("");
+        showToast("Tool error.", true);
+        return;
+      }
+
+      const data = parseData(result);
+
+      if (data && data.success) {
+        const icon  = data.action === "created" ? "&#x2705;" : "&#x1F4DD;";
+        const label = data.action === "created" ? "Created" : "Updated";
+        document.getElementById("editResult").innerHTML =
+          '<div class="state-box success">'
+          + '<span class="state-icon">' + icon + '</span>'
+          + '<div class="state-title">' + label + '</div>'
+          + '<div class="state-message">ID: ' + esc(String(data.reportId))
+          + ' &nbsp;|&nbsp; ' + esc(data.employeeName)
+          + ' &nbsp;|&nbsp; ' + esc(formatDate(data.reportDate)) + '</div>'
+          + '</div>';
+        setStatus("Saved.");
+        showToast(data.action === "created" ? "Report created." : "Report updated.");
+      } else {
+        document.getElementById("editResult").innerHTML =
+          '<div class="state-box error"><span class="state-icon">&#x26A0;&#xFE0F;</span>'
+          + '<div class="state-title">Save Failed</div>'
+          + '<div class="state-message">' + esc((data && data.message) || "Unknown error") + '</div></div>';
+        setStatus("");
+        showToast("Save failed.", true);
+      }
+    } catch (e) {
+      document.getElementById("editResult").innerHTML =
+        '<div class="state-box error"><span class="state-icon">&#x26A0;&#xFE0F;</span>'
+        + '<div class="state-title">Error</div>'
+        + '<div class="state-message">' + esc(e.message) + '</div></div>';
+      setStatus("");
+      showToast(e.message || "Unexpected error.", true);
+    } finally {
+      setButtons(false);
+    }
+  }
+
+  function formatDate(str) {
+    if (!str) return "";
+    const d = new Date(str);
+    if (isNaN(d)) return str;
+    return d.toLocaleDateString("ja-JP", { year:"numeric", month:"long", day:"numeric", weekday:"short" });
+  }
+
+  function esc(str) {
+    if (str == null) return "";
+    return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // addEventListener で登録（onclick属性不使用）
+  document.getElementById("btnLoad").addEventListener("click", loadForEdit);
+  document.getElementById("btnSave").addEventListener("click", saveReport);
+
+  // ontoolresult は connect() 前に登録
+  app.ontoolresult = (result) => {
+    if (result.isError) return;
+    const sc = result.structuredContent;
+    if (sc && !sc.error) {
+      document.getElementById("editSummary").value  = sc.summary      || "";
+      document.getElementById("editTomorrow").value = sc.tomorrowPlan || "";
+      setStatus("Loaded from tool result.");
+    }
+  };
+
+  document.getElementById("editDate").value = new Date().toISOString().slice(0, 10);
+
+  // connect() 完了するまでボタンは disabled のまま
+  try {
+    setStatus("Connecting...");
+    await app.connect();
+
+    // connect() 完了後に本物のエラーハンドラを設置
+    app.onerror = (err) => {
+      setStatus("Error: " + (err?.message ?? String(err)));
+    };
+
+    setStatus("Ready.");
+    setButtons(false);  // ここで初めてボタンを有効化
+
+  } catch (err) {
+    app.onerror = (e) => {
+      setStatus("Error: " + (e?.message ?? String(e)));
+    };
+    setStatus("Init failed: " + (err?.message ?? String(err)));
+    setButtons(false);  // 失敗しても操作できるよう開放
+  }
+</script>
+</body>
+</html>
