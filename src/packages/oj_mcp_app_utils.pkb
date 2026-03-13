@@ -235,11 +235,11 @@ end generate_array_for_list_tools;
 /**
  * Generate JSON array of content for tools/call.
  */
-function generate_array_for_tools_call(
+function generate_object_for_tools_call(
     p_name in varchar2,
     p_args in json_object_t
 )
-return json_array_t
+return json_object_t
 as
     l_scope uc_ai_logger.scope := gc_scope_prefix || 'generate_array_for_list_tools';
 
@@ -260,9 +260,14 @@ begin
     l_out_obj.put('text', l_out);
     /* put tool output to content array */
     l_content_arr.append(l_out_obj);
+    l_result_json := json_object_t();
+    l_result_json.put('content', l_content_arr);
+    /* is output_schema  defined ? if yes, include structuredContent */
+    l_result_json.put('structuredContent', json_object_t(l_out));
+    l_result_json.put('isError', false);
     uc_ai_logger.log_info('content: ' || l_content_arr.to_clob(), l_scope);
-    return l_content_arr;
-end generate_array_for_tools_call;
+    return l_result_json;
+end generate_object_for_tools_call;
 
 /**
  * Generate the JSON array that will serve as the value of resources in the resources/list response.

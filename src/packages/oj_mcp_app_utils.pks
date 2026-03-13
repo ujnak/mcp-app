@@ -68,11 +68,11 @@ return json_array_t;
 /**
  * Generate JSON array of content for tools/call.
  */
-function generate_array_for_tools_call(
+function generate_object_for_tools_call(
     p_name in varchar2,
     p_args in json_object_t
 )
-return json_array_t;
+return json_object_t;
 
 /**
  * Generate JSON array of resources for responses/list.

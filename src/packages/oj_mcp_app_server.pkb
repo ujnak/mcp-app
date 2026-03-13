@@ -164,7 +164,6 @@ as
         l_params      json_object_t;
         l_name        varchar2(128);
         l_args_obj    json_object_t;
-        l_content_arr json_array_t;
         l_result_json json_object_t;
         l_error_json  json_object_t;
     begin
@@ -204,10 +203,7 @@ as
         /*
          * Execute Tool.
          */
-        l_content_arr := oj_mcp_app_utils.generate_array_for_tools_call(l_name, l_args_obj);
-        l_result_json := json_object_t();
-        l_result_json.put('content', l_content_arr);
-        l_result_json.put('isError', false);
+        l_result_json := oj_mcp_app_utils.generate_object_for_tools_call(l_name, l_args_obj);
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
