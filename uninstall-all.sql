@@ -24,6 +24,7 @@ declare
     l_drop varchar2(100);
     l_drop_cmds t_command_table := t_command_table(
         'drop package oj_mcp_app_server',
+        'drop package oj_mcp_app_methods',
         'drop package oj_mcp_app_utils',
         'drop package oj_mcp_jsonrpc_utils',
         'drop view oj_mcp_uc_ai_tools',

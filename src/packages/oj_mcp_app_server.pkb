@@ -64,7 +64,7 @@ as
         end if;
 
         /* negotiate capabilities with the client. */
-        l_capabilities_json := oj_mcp_app_utils.negotiate_client_server_capabilities(l_client_capabilities_json);
+        l_capabilities_json := oj_mcp_app_methods.negotiate_client_server_capabilities(l_client_capabilities_json);
 
         p_status_code := 200;
         p_error := null;
@@ -111,7 +111,7 @@ as
     begin
         l_params := json_object_t.parse(p_params);
         l_level := l_params.get_string('level');
-        oj_mcp_app_utils.set_log_level(l_level);
+        oj_mcp_app_methods.set_log_level(l_level);
         p_status_code := 200;
         p_error := null;
         p_result := '{}';
@@ -133,7 +133,7 @@ as
         l_error_json  json_object_t;
     begin
         uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
-        l_tools_arr := oj_mcp_app_utils.generate_array_for_list_tools(p_context);
+        l_tools_arr := oj_mcp_app_methods.generate_array_for_list_tools(p_context);
         l_result_json := json_object_t();
         l_result_json.put('tools', l_tools_arr);
         p_result := l_result_json.to_clob();
@@ -203,7 +203,7 @@ as
         /*
          * Execute Tool.
          */
-        l_result_json := oj_mcp_app_utils.generate_object_for_tools_call(l_name, l_args_obj);
+        l_result_json := oj_mcp_app_methods.generate_object_for_tools_call(l_name, l_args_obj);
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
@@ -233,7 +233,7 @@ as
         l_error_json    json_object_t;
     begin
         uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
-        l_resources_arr := oj_mcp_app_utils.generate_array_for_list_ui_resources(p_context);
+        l_resources_arr := oj_mcp_app_methods.generate_array_for_list_ui_resources(p_context);
         l_result_json := json_object_t();
         l_result_json.put('resources', l_resources_arr);
         p_result := l_result_json.to_clob();
@@ -300,7 +300,7 @@ as
         /*
          * Build contents for resourceUri
          */
-        l_contents_arr := oj_mcp_app_utils.generate_array_for_read_ui_resource(l_uri);
+        l_contents_arr := oj_mcp_app_methods.generate_array_for_read_ui_resource(l_uri);
 
         /* Format outout.  */
         l_result_json := json_object_t();
