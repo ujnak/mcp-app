@@ -92,7 +92,7 @@ begin
 
   <script type="module">
     import { App, applyHostStyleVariables, applyDocumentTheme }
-      from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.1.2/+esm';
+      from 'https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1.2.2/+esm';
 
     const statusEl = document.getElementById('status');
     const resultEl = document.getElementById('result');

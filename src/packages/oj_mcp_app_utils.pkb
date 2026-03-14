@@ -247,6 +247,7 @@ as
     l_out clob;
     l_out_obj     json_object_t;
     l_result_json json_object_t;
+    l_output_schema oj_mcp_uc_ai_tools.output_schema%type;
 begin
     uc_ai_logger.log_info('name: ' || p_name || ' args: ' || p_args.to_clob(), l_scope);
     /*
@@ -263,9 +264,12 @@ begin
     l_result_json := json_object_t();
     l_result_json.put('content', l_content_arr);
     /* is output_schema  defined ? if yes, include structuredContent */
-    l_result_json.put('structuredContent', json_object_t(l_out));
+    select output_schema into l_output_schema from oj_mcp_uc_ai_tools where code = p_name;
+    if l_output_schema is not null then
+        l_result_json.put('structuredContent', json_object_t(l_out));
+    end if;
     l_result_json.put('isError', false);
-    uc_ai_logger.log_info('content: ' || l_content_arr.to_clob(), l_scope);
+    uc_ai_logger.log_info('result: ' || l_result_json.to_clob(), l_scope);
     return l_result_json;
 end generate_object_for_tools_call;
 
