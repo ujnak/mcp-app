@@ -153,7 +153,7 @@ begin
       resultEl.style.display = 'none';
 
       try {
-        const result = await app.callServerTool({"name": "get_current_user"});
+        const result = await app.callServerTool({ "name": "get_current_user", "arguments": {} });
         handleResult(result);
       } catch (err) {
         showResult('error', 'Error', err?.message ?? String(err));
