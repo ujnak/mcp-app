@@ -33,12 +33,12 @@ prompt APPLICATION 102 - Daily Report
 -- Application Export:
 --   Application:     102
 --   Name:            Daily Report
---   Date and Time:   06:07 火曜日 3月 17, 2026
+--   Date and Time:   06:33 火曜日 3月 17, 2026
 --   Exported By:     APEXDEV
 --   Flashback:       0
 --   Export Type:     Application Export
 --     Pages:                     11
---       Items:                   32
+--       Items:                   33
 --       Computations:             2
 --       Validations:              2
 --       Processes:               22
@@ -117,7 +117,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_string_04=>'G_PRIVILEGE_DESC'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>41826954476670
+,p_version_scn=>41826955327406
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -1566,6 +1566,19 @@ wwv_flow_imp_page.create_page_button(
 ,p_database_action=>'INSERT'
 );
 wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(9043913988455750)
+,p_name=>'P3_RAS'
+,p_item_sequence=>50
+,p_item_plug_id=>wwv_flow_imp.id(78513684319748987)
+,p_item_default=>'N'
+,p_prompt=>'RAS'
+,p_display_as=>'NATIVE_YES_NO'
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'use_defaults', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(78514123040748988)
 ,p_name=>'P3_ID'
 ,p_source_data_type=>'NUMBER'
@@ -1696,8 +1709,16 @@ wwv_flow_imp_page.create_page_process(
 '    l_module_name varchar2(80);',
 '    C_POST_SOURCE   constant varchar2(32767) := ''begin oj_mcp_post_handler(:body,:current_user,:status_code); end;'';',
 '    C_DELETE_SOURCE constant varchar2(32767) := ''begin oj_mcp_delete_handler(:current_user,:status_code); end;'';',
+'    C_RAS_POST_SOURCE   constant varchar2(32767) := ''begin oj_mcp_ras_post_handler(:body,:current_user,:status_code); end;'';',
+'    C_RAS_DELETE_SOURCE constant varchar2(32767) := ''begin oj_mcp_ras_delete_handler(:current_user,:status_code); end;'';',
+'    l_post_source   varchar2(32767) := C_POST_SOURCE;',
+'    l_delete_source varchar2(32767) := C_DELETE_SOURCE;',
 'begin',
 '    l_module_name := lower(:P3_MODULE_NAME);',
+'    if :P3_RAS = ''Y'' then',
+'        l_post_source   := C_RAS_POST_SOURCE;',
+'        l_delete_source := C_RAS_DELETE_SOURCE;',
+'    end if;',
 '    ords.define_service(',
 '        p_module_name    => l_module_name,',
 '        p_base_path      => apex_string.format(''/%s/'', l_module_name),',
@@ -1705,7 +1726,7 @@ wwv_flow_imp_page.create_page_process(
 '        p_method         => ''POST'',',
 '        p_source_type    => ''plsql/block'',',
 '        -- p_mimes_allowed  => ''application/json'',',
-'        p_source         => C_POST_SOURCE',
+'        p_source         => l_post_source',
 '    );',
 '    ords.define_handler(',
 '        p_module_name    => l_module_name,',
@@ -1713,7 +1734,7 @@ wwv_flow_imp_page.create_page_process(
 '        p_method         => ''DELETE'',',
 '        p_source_type    => ''plsql/block'',',
 '        -- p_mimes_allowed  => ''application/json'',',
-'        p_source         => C_DELETE_SOURCE',
+'        p_source         => l_delete_source',
 '    );',
 'end;'))
 ,p_process_clob_language=>'PLSQL'
