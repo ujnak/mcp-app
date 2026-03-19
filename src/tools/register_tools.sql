@@ -51,7 +51,7 @@ begin
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'run_sql',
     p_description => 'Run SQL SELECT statement on Oracle Database and return the result in JSON document.',
-    p_function_call => 'return run_sql(:parameters);',
+    p_function_call => 'return #SESSION_USER#.run_sql(:parameters);',
     p_json_schema => l_schema,
     p_tags => apex_t_varchar2('nl2sql','sampleserver','run-sql')
   );

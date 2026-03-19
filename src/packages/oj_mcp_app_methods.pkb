@@ -20,22 +20,6 @@ begin
     :return_val := user_function;
 end;]';
 
-C_PLSQL_BLOCK_RAS constant varchar2(32767) := q'[declare
-    function user_function
-    return clob
-    as
-    begin
-        #FC_CODE#
-    end user_function;
-begin
-    sys.dbms_xs_sessions.attach_session(
-        sessionid            => :sessionid,
-        enable_dynamic_roles => :dynamic_roles
-    );
-    :return_val := user_function;
-    sys.dbms_xs_sessions.detach_session;
-end;]';
-
 /**
  * Set APEX and Logger log level from  MCP log level.
  */
@@ -246,6 +230,7 @@ as
     l_cursor_id pls_integer;
     l_rows_fetched pls_integer;
     l_ras_session_id raw(16);
+    is_error boolean := false;
 begin
     /* retrieve function code from uc_ai_tools */
     begin
@@ -254,6 +239,7 @@ begin
     exception
         when no_data_found then
             logger.log_error('No code registered. ' || p_name, l_scope);
+            raise_application_error(-20001, 'No code registereed.');
     end;
     /* find bind variable in the function call */
     l_found_binds := apex_string.grep(
@@ -266,18 +252,14 @@ begin
         logger.log_info('No bind variable found', l_scope);
     elsif l_found_binds.count > 1 then
         logger.log_error('Too many bind variable. ' || l_fc_code, l_scope);
-        raise_application_error(-20001, 'Too many bind variable.');
+        raise_application_error(-20002, 'Too many bind variable.');
     elsif l_found_binds.count = 1 then
         logger.log_info('l_found_binds ' || l_found_binds(1), l_scope);
     end if;
     /*
      * Construct PL/SQL block to execute.
      */
-    if p_enable_ras then
-        l_plsql_block := C_PLSQL_BLOCK_RAS;
-    else
-        l_plsql_block := C_PLSQL_BLOCK;
-    end if;
+    l_plsql_block := C_PLSQL_BLOCK;
     l_plsql_block := replace(l_plsql_block, '#FC_CODE#', l_fc_code);
     l_plsql_block := replace(l_plsql_block, '#SESSION_USER#', sys_context('USERENV', 'SESSION_USER'));
     l_plsql_block := replace(l_plsql_block, '#CURRENT_USER#', sys_context('USERENV', 'CURRENT_USER'));
@@ -288,34 +270,88 @@ begin
      * Execute Tool by DBMS_SQL.
      */
     l_cursor_id := sys.dbms_sql.open_cursor;
-    sys.dbms_sql.parse(l_cursor_id, l_plsql_block, sys.dbms_sql.native);
-    sys.dbms_sql.bind_variable(l_cursor_id, ':return_val', l_out);
     if l_found_binds is not null then
         l_args_clob := null;
         if p_args is not null then
             l_args_clob := p_args.to_clob();
         end if;
         logger.log_info('argument ' || l_args_clob, l_scope);
-        sys.dbms_sql.bind_variable(l_cursor_id, ':' || l_found_binds(1),  l_args_clob);
     end if;
     if p_enable_ras then
-        /*
-         * Real Applicaiton Security Support.
-         */
         begin
-            select sessionid into l_ras_session_id from dba_xs_sessions where cookie = p_current_user || '-' || p_mcp_session_id;
-            sys.dbms_sql.bind_variable(l_cursor_id, ':sessionid', l_ras_session_id);
-            sys.dbms_sql.bind_variable(l_cursor_id, ':dynamic_roles', p_dynamic_roles);
+            /*
+             * Real Applicaiton Security Support.
+             */
+            l_ras_session_id := null;
+            begin
+                select sessionid into l_ras_session_id from dba_xs_sessions where cookie = p_current_user || '-' || p_mcp_session_id;
+            exception
+                when no_data_found then
+                    l_out := 'No RAS session found for MCP Session, The session must be re-established.';
+                    is_error := true;
+                    logger.log_error('No RAS session found for MCP Session ' || p_mcp_session_id, l_scope);
+                when others then
+                    l_out := sqlerrm;
+                    is_error := true;
+            end;
+            if l_ras_session_id is not null then
+                logger.log_info('RAS Session attaching...' || l_ras_session_id, l_scope);
+                sys.dbms_xs_sessions.attach_session(
+                    sessionid            => l_ras_session_id,
+                    enable_dynamic_roles => p_dynamic_roles
+                );
+                logger.log_info('RAS Session attached. ' || l_ras_session_id, l_scope);
+                sys.dbms_sql.parse(l_cursor_id, l_plsql_block, sys.dbms_sql.native);
+                sys.dbms_sql.bind_variable(l_cursor_id, ':return_val', l_out);
+                if l_found_binds is not null then
+                    logger.log_info('bind ' || l_found_binds(1) || ' value ' || l_args_clob, l_scope);
+                    sys.dbms_sql.bind_variable(l_cursor_id, ':' || l_found_binds(1),  l_args_clob);
+                end if;
+                l_rows_fetched := sys.dbms_sql.execute(l_cursor_id);
+                logger.log_info('RAS Session detaching...', l_scope);
+                sys.dbms_xs_sessions.detach_session;
+                logger.log_info('RAS Session detached.', l_scope);
+            end if;
         exception
-            when no_data_found then
-                l_ras_session_id := null;
-                logger.log_info('No XS Session created.' || p_mcp_session_id, l_scope);
+            when others then
+                l_out := sqlerrm;
+                is_error := true;
+                logger.log_error('Failed to tools call: ' || l_out, l_scope);
+                /* force to detach xs session */
+                begin
+                    logger.log_info('Force to detach RAS Session.', l_scope);
+                    sys.dbms_xs_sessions.detach_session;
+                exception
+                    when others then
+                        logger.log_info(sqlerrm, l_scope);
+                end;
+                -- raise;
+        end;
+    else
+        begin
+            sys.dbms_sql.parse(l_cursor_id, l_plsql_block, sys.dbms_sql.native);
+            sys.dbms_sql.bind_variable(l_cursor_id, ':return_val', l_out);
+            if l_found_binds is not null then
+                logger.log_info('bind ' || l_found_binds(1) || ' value ' || l_args_clob, l_scope);
+                sys.dbms_sql.bind_variable(l_cursor_id, ':' || l_found_binds(1),  l_args_clob);
+            end if;
+            l_rows_fetched := sys.dbms_sql.execute(l_cursor_id);
+        exception
+            when others then
+                l_out := sqlerrm;
+                is_error := true;
         end;
     end if;
-    l_rows_fetched := sys.dbms_sql.execute(l_cursor_id);
-    sys.dbms_sql.variable_value(l_cursor_id, ':return_val', l_out);
-    sys.dbms_sql.close_cursor(l_cursor_id);
-    logger.log_info('return_val: ' || l_out, l_scope);
+    if not is_error then
+        sys.dbms_sql.variable_value(l_cursor_id, ':return_val', l_out);
+        logger.log_info('return_val: ' || l_out, l_scope);
+    end if;
+    begin
+        sys.dbms_sql.close_cursor(l_cursor_id);
+    exception
+        when others then
+            logger.log_info('close cursor failed. ' || sqlerrm, l_scope);
+    end;
     /* Format output.  */
     l_content_arr := json_array_t();
     l_out_obj     := json_object_t();
@@ -330,7 +366,7 @@ begin
     if l_output_schema is not null then
         l_result_json.put('structuredContent', json_object_t(l_out));
     end if;
-    l_result_json.put('isError', false);
+    l_result_json.put('isError', is_error);
     logger.log_info('result: ' || l_result_json.to_clob(), l_scope);
     return l_result_json;
 end generate_object_for_tools_call;
