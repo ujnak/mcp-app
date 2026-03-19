@@ -23,6 +23,11 @@ declare
     type t_command_table is table of varchar2(100);
     l_drop varchar2(100);
     l_drop_cmds t_command_table := t_command_table(
+        'drop procedure oj_mcp_ras_post_handler',
+        'drop procedure oj_mcp_ras_delete_handler',
+        'drop procedure oj_mcp_post_handler',
+        'drop procedure oj_mcp_delete_handler',
+        'drop package oj_mcp_ras_ctx',
         'drop package oj_mcp_app_server',
         'drop package oj_mcp_app_methods',
         'drop package oj_mcp_app_utils',

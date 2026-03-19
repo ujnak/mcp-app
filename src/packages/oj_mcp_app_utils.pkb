@@ -12,7 +12,7 @@ procedure update_app_text_from_apex_page(
     p_page_url              in varchar2
 )
 as
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'update_app_text_from_apex_page';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'update_app_text_from_apex_page';
 
     l_html_bundle_clob clob;
     e_failed_to_get_html_bundle exception;
@@ -27,7 +27,7 @@ begin
         p_http_method => 'GET'
     );
     if apex_web_service.g_status_code != 200 then
-        uc_ai_logger.log_error('Failed to get HTML bundle from APEX page. URL: ' || p_page_url 
+        logger.log_error('Failed to get HTML bundle from APEX page. URL: ' || p_page_url 
             || ', HTTP status code: ' || apex_web_service.g_status_code, l_scope);
         raise e_failed_to_get_html_bundle;
     end if;

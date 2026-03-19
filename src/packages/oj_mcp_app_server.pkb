@@ -5,6 +5,13 @@ as
 
     C_MCP_SESSION_ID_HEADER constant varchar2(16) := 'Mcp-Session-Id';
 
+    /* RAS support */
+    g_enable_ras     boolean          := false;
+    g_current_user   varchar2(128)    := null;
+    g_mcp_session_id varchar2(128)    := null;
+    g_dynamic_roles  sys.xs$name_list := xs$name_list('EMPLOYEE','MCPRUNTIME');
+    g_namespace      varchar2(128)    := 'HREMP';
+
     procedure initialize(
         p_username     in varchar2
         ,p_params      in clob
@@ -14,7 +21,7 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'initialize';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'initialize';
 
         l_params            json_object_t;
         l_client_protocol_version  varchar2(32);
@@ -23,7 +30,7 @@ as
         l_error_json        json_object_t;
         l_result_json  json_object_t;
     begin
-        uc_ai_logger.log_info('params: ' || p_params, l_scope);
+        logger.log_info('params: ' || p_params, l_scope);
         /*
          * Capabilities are determined based on the parameters sent by the client.
          */
@@ -59,7 +66,7 @@ as
          */
         l_client_protocol_version  := l_params.get_string('protocolVersion');
         if l_client_protocol_version is null then
-            uc_ai_logger.log_info('No protocolVersion set by the client', l_scope);
+            logger.log_info('No protocolVersion set by the client', l_scope);
             l_client_protocol_version := '2025-11-25';
         end if;
 
@@ -75,7 +82,7 @@ as
         l_result_json.put('capabilities',    l_capabilities_json);
         l_result_json.put('serverInfo', json_object_t('{ "name": "' || p_context || '", "version": "0.1.0" }'));
         p_result := l_result_json.to_clob();
-        uc_ai_logger.log_info('result: ' || p_result, l_scope);
+        logger.log_info('result: ' || p_result, l_scope);
     end initialize;
 
     procedure notifications_initialized(
@@ -87,7 +94,7 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'notifications_initialized';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'notifications_initialized';
     begin
         /* status code 204 for notifications.  */
         p_status_code := 204;
@@ -104,7 +111,7 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'logging_setlevel';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'logging_setlevel';
 
         l_params json_object_t;
         l_level  varchar2(16);
@@ -126,20 +133,20 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'tools_list';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'tools_list';
 
         l_tools_arr   json_array_t;
         l_result_json json_object_t;
         l_error_json  json_object_t;
     begin
-        uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
+        logger.log_info('p_context: ' || p_context, l_scope);
         l_tools_arr := oj_mcp_app_methods.generate_array_for_list_tools(p_context);
         l_result_json := json_object_t();
         l_result_json.put('tools', l_tools_arr);
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
-        uc_ai_logger.log_info('result: ' || p_result, l_scope);
+        logger.log_info('result: ' || p_result, l_scope);
     exception
         when others then
             l_error_json := json_object_t();
@@ -159,7 +166,7 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'tools_call';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'tools_call';
 
         l_params      json_object_t;
         l_name        varchar2(128);
@@ -203,7 +210,14 @@ as
         /*
          * Execute Tool.
          */
-        l_result_json := oj_mcp_app_methods.generate_object_for_tools_call(l_name, l_args_obj);
+        l_result_json := oj_mcp_app_methods.generate_object_for_tools_call(
+            p_name => l_name,
+            p_args => l_args_obj,
+            p_enable_ras => g_enable_ras,
+            p_current_user => g_current_user,
+            p_mcp_session_id => g_mcp_session_id,
+            p_dynamic_roles  => g_dynamic_roles
+        );
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
@@ -226,20 +240,20 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'resources_list';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'resources_list';
 
         l_resources_arr json_array_t;
         l_result_json   json_object_t;
         l_error_json    json_object_t;
     begin
-        uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
+        logger.log_info('p_context: ' || p_context, l_scope);
         l_resources_arr := oj_mcp_app_methods.generate_array_for_list_ui_resources(p_context);
         l_result_json := json_object_t();
         l_result_json.put('resources', l_resources_arr);
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
-        uc_ai_logger.log_info('result: ' || p_result, l_scope);
+        logger.log_info('result: ' || p_result, l_scope);
     exception
         when others then
             l_error_json := json_object_t();
@@ -259,7 +273,7 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'resources_read';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'resources_read';
 
         l_params json_object_t;
         l_uri varchar2(128);
@@ -267,7 +281,7 @@ as
         l_contents_arr json_array_t;
         l_error_json    json_object_t;
     begin
-        uc_ai_logger.log_info('resources_read is called with parameters: ' || p_params, l_scope);
+        logger.log_info('resources_read is called with parameters: ' || p_params, l_scope);
         /*
          * uri parameter is mandatory; therefore, p_params must not be NULL.
          */
@@ -308,7 +322,7 @@ as
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
-        uc_ai_logger.log_info('Resource read successfully for uri ' || l_uri || '. Result: ' || p_result, l_scope);
+        logger.log_info('Resource read successfully for uri ' || l_uri || '. Result: ' || p_result, l_scope);
     exception
         when others then
             l_error_json := json_object_t();
@@ -328,7 +342,7 @@ as
         ,p_status_code out number
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'resources_templates_list';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'resources_templates_list';
 
         l_resource_templates_arr json_array_t := json_array_t();
         l_result_json json_object_t;
@@ -350,9 +364,10 @@ as
         ,p_response     out blob
         ,p_session_id   out varchar2
         ,p_status_code  out number
+        ,p_enable_ras   in boolean default false
     )
     as
-        l_scope uc_ai_logger.scope := gc_scope_prefix || 'ords_handler';
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'ords_handler';
 
         C_SCRIPT_PATH_PATTERN   constant varchar2(30) := '/([^\/]+)/([^\/]+)/mcp$';
 
@@ -385,6 +400,10 @@ as
         l_result      clob;
         l_error       clob;
         l_status_code number;
+        /*
+         * RAS
+         */
+        l_nsattrlist sys.dbms_xs_nsattrlist;
     begin
         /*
          * Since the system is currently under development, set the default logging level of the Logger to INFO.
@@ -398,8 +417,8 @@ as
             regexp_substr(p_script_name, C_SCRIPT_PATH_PATTERN, 1, 1, null, 1),
             regexp_substr(p_script_name, C_SCRIPT_PATH_PATTERN, 1, 1, null, 2)
         into l_ords_pattern, l_ords_module_name from dual;
-        uc_ai_logger.log_info('ORDS Pattern found '     || l_ords_pattern,     l_scope);
-        uc_ai_logger.log_info('ORDS Module Name found ' || l_ords_module_name, l_scope);
+        logger.log_info('ORDS Pattern found '     || l_ords_pattern,     l_scope);
+        logger.log_info('ORDS Module Name found ' || l_ords_module_name, l_scope);
 
         /*
          * Assume ORDS alias as the APEX workspace name and set it as active workspace.
@@ -408,7 +427,7 @@ as
             apex_util.set_workspace(upper(l_ords_pattern));
         exception
             when others then
-                uc_ai_logger.log_error('Failed to set APEX workspace ' || l_ords_pattern || ' ' || sqlerrm, l_scope);
+                logger.log_error('Failed to set APEX workspace ' || l_ords_pattern || ' ' || sqlerrm, l_scope);
                 raise;
         end;
 
@@ -420,7 +439,7 @@ as
             where workspace = upper(l_ords_pattern) and alias = upper(l_ords_module_name);
         exception
             when no_data_found then
-                uc_ai_logger.log_error('No APEX application with alias ' || l_ords_module_name || ' found. ' || sqlerrm, l_scope);
+                logger.log_error('No APEX application with alias ' || l_ords_module_name || ' found. ' || sqlerrm, l_scope);
                 raise;
         end;
 
@@ -441,13 +460,13 @@ as
              *  to use directly as a username.
              */
             l_username := p_username;
-            uc_ai_logger.log_info('Use sub claim in Bearer token as a username: ' || l_username, l_scope);
+            logger.log_info('Use sub claim in Bearer token as a username: ' || l_username, l_scope);
         else
             /*
              * Use the database user when no authentication is provided. 
              */
             select sys_context('USERENV', 'CURRENT_USER') into l_username from dual;
-            uc_ai_logger.log_info('Use database user as a username: ' || l_username, l_scope);
+            logger.log_info('Use database user as a username: ' || l_username, l_scope);
         end if;
 
         /*
@@ -458,9 +477,9 @@ as
          */
         p_session_id := owa_util.get_cgi_env(C_MCP_SESSION_ID_HEADER);
         if p_session_id is null then
-            uc_ai_logger.log_info(C_MCP_SESSION_ID_HEADER || ' not found', l_scope);
+            logger.log_info(C_MCP_SESSION_ID_HEADER || ' not found', l_scope);
         else
-            uc_ai_logger.log_info(C_MCP_SESSION_ID_HEADER || ' found, ID = ' || p_session_id, l_scope);
+            logger.log_info(C_MCP_SESSION_ID_HEADER || ' found, ID = ' || p_session_id, l_scope);
         end if;
  
         /*
@@ -480,10 +499,10 @@ as
                     p_code    => C_INVALID_REQUEST,
                     p_message => 'Invalid JSON-RPC version. Expected "2.0".'
                 );
-                uc_ai_logger.log_error('Invalid JSON-RPC version', l_scope);
+                logger.log_error('Invalid JSON-RPC version', l_scope);
                 return;
             else
-                uc_ai_logger.log_info('JSON-RPC version is ' || l_version, l_scope);
+                logger.log_info('JSON-RPC version is ' || l_version, l_scope);
             end if;
 
             /*
@@ -497,10 +516,10 @@ as
                     p_code    => C_INVALID_REQUEST,
                     p_message => 'Method is required in the request.'
                 );
-                uc_ai_logger.log_error('Method is required in the request', l_scope);
+                logger.log_error('Method is required in the request', l_scope);
                 return;
             else
-                uc_ai_logger.log_info('Request method is ' || l_method, l_scope);
+                logger.log_info('Request method is ' || l_method, l_scope);
             end if;
 
             /*
@@ -509,9 +528,9 @@ as
              */
             l_id := l_request_json.get_number('id');
             if l_id is null then
-                uc_ai_logger.log_info('No id in the request', l_scope);
+                logger.log_info('No id in the request', l_scope);
             else
-                uc_ai_logger.log_info('jsonrpc request id is ' || l_id, l_scope);
+                logger.log_info('jsonrpc request id is ' || l_id, l_scope);
             end if;
 
             /*
@@ -520,9 +539,9 @@ as
             l_params_obj := l_request_json.get_object('params');
             if l_params_obj is not null then
                 l_params := l_params_obj.to_clob();
-                uc_ai_logger.log_info('params found in the request: ' || l_params, l_scope);
+                logger.log_info('params found in the request: ' || l_params, l_scope);
             else
-                uc_ai_logger.log_info('No params in the request', l_scope);
+                logger.log_info('No params in the request', l_scope);
             end if;
 
         exception
@@ -533,7 +552,7 @@ as
                     p_code => C_PARSE_ERROR,
                     p_message => 'Invalid JSON format in request body. sqlerrm: ' || sqlerrm
                 );
-                uc_ai_logger.log_error('Invalid JSON format in request body. sqlerrm: ' || sqlerrm, l_scope);
+                logger.log_error('Invalid JSON format in request body. sqlerrm: ' || sqlerrm, l_scope);
                 return;
         end;
         
@@ -548,10 +567,38 @@ as
             );
             select sys_context('APEX$SESSION','APP_SESSION') into p_session_id from dual;
             if p_session_id is not null then
-                uc_ai_logger.log_info('APEX session is created as ' || p_session_id, l_scope);
+                logger.log_info('APEX session is created as ' || p_session_id, l_scope);
             else
-                uc_ai_logger.log_error('APEX session can not be created.', l_scope);
+                logger.log_error('APEX session can not be created.', l_scope);
             end if;
+            /*
+             * Create RAS session if RAS is enabled.
+             */
+            if p_enable_ras then
+                logger.log_info('Creating RAS session...', l_scope);
+                l_nsattrlist := oj_mcp_ras_ctx.prepare_namespace(
+                    p_username => p_username,
+                    p_namespace => g_namespace
+                );
+                for i in 1..l_nsattrlist.count
+                loop
+                    logger.log_info(l_nsattrlist(i).namespace || ' ' || l_nsattrlist(i).attribute || ' ' || l_nsattrlist(i).attribute_value, l_scope);
+                end loop;
+                oj_mcp_ras_ctx.create_session(
+                    p_current_user   => l_username,
+                    p_mcp_session_id => p_session_id,
+                    p_nsattrlist     => l_nsattrlist
+                );
+                logger.log_info('XS Session created. ' || p_session_id, l_scope);
+                g_enable_ras     := true;
+                g_current_user   := l_username;
+                g_mcp_session_id := p_session_id;
+            else
+                g_enable_ras     := false;
+                g_current_user   := null;
+                g_mcp_session_id := null;
+                logger.log_info('XS Session is not created.', l_scope);
+            end if;                  
         else
             /* Attach the session if the session ID exists. */
             if p_session_id is not null then
@@ -560,7 +607,16 @@ as
                     ,p_page_id    => l_apex_page_id
                     ,p_session_id => p_session_id
                 );
-                uc_ai_logger.log_info('MCP session is attachted to APEX session ' || p_session_id, l_scope);
+                logger.log_info('MCP session is attachted to APEX session ' || p_session_id, l_scope);
+                if p_enable_ras then
+                    g_enable_ras     := true;
+                    g_current_user   := l_username;
+                    g_mcp_session_id := p_session_id;
+                else
+                    g_enable_ras     := false;
+                    g_current_user   := null;
+                    g_mcp_session_id := null;
+                end if;
             else
                 p_status_code := 400;
                 p_response := oj_mcp_jsonrpc_utils.create_error_response(
@@ -568,7 +624,7 @@ as
                     p_code    => C_INVALID_REQUEST,
                     p_message => 'Mcp-Session-Id is required for method: ' || l_method
                 );
-                uc_ai_logger.log_error('Mcp-Session-Id is required for method: ' || l_method, l_scope);
+                logger.log_error('Mcp-Session-Id is required for method: ' || l_method, l_scope);
                 return;
             end if;
         end if;
@@ -600,7 +656,7 @@ as
                     p_code    => C_METHOD_NOT_FOUND,
                     p_message => 'Method ' || l_method || ' not found.'
                 );
-                uc_ai_logger.log_error('Method ' || l_method || ' not found.', l_scope);
+                logger.log_error('Method ' || l_method || ' not found.', l_scope);
                 return;
         end case;
 

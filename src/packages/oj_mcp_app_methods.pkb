@@ -3,6 +3,33 @@ as
 
 gc_scope_prefix constant varchar2(31 char) := lower($$plsql_unit) || '.';
 
+C_PLSQL_BLOCK constant varchar2(32767) := q'[declare
+    function user_function
+    return clob
+    as
+    begin
+        #FC_CODE#
+    end user_function;
+begin
+    :return_val := user_function;
+end;]';
+
+C_PLSQL_BLOCK_RAS constant varchar2(32767) := q'[declare
+    function user_function
+    return clob
+    as
+    begin
+        #FC_CODE#
+    end user_function;
+begin
+    sys.dbms_xs_sessions.attach_session(
+        sessionid            => :sessionid,
+        enable_dynamic_roles => :dynamic_roles
+    );
+    :return_val := user_function;
+    sys.dbms_xs_sessions.detach_session;
+end;]';
+
 /**
  * Set APEX and Logger log level from  MCP log level.
  */
@@ -10,7 +37,7 @@ procedure set_log_level(
     p_log_level in varchar2
 )
 as
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'set_log_level';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'set_log_level';
     l_log_level_logger varchar2(16) := null;
     l_log_level_apex   pls_integer  := null;
 begin
@@ -45,17 +72,17 @@ begin
     end if;
     if l_log_level_logger is not null then
         logger.set_level(l_log_level_logger);
-        uc_ai_logger.log_info('Logger log level is now ' || l_log_level_logger, l_scope);
+        logger.log_info('Logger log level is now ' || l_log_level_logger, l_scope);
     else
         logger.set_level('OFF');
-        uc_ai_logger.log_info('Logger log is disabled', l_scope);
+        logger.log_info('Logger log is disabled', l_scope);
     end if;
     if l_log_level_apex   is not null then
         apex_debug.enable(l_log_level_apex);
-        uc_ai_logger.log_info('APEX log level is now ' || l_log_level_apex, l_scope);
+        logger.log_info('APEX log level is now ' || l_log_level_apex, l_scope);
     else
         apex_debug.disable();
-        uc_ai_logger.log_info('APEX log is disabled', l_scope);
+        logger.log_info('APEX log is disabled', l_scope);
     end if;
 end set_log_level;
 
@@ -66,13 +93,13 @@ function negotiate_client_server_capabilities(
     p_client_capabilities_json in json_object_t
 ) return json_object_t
 as
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'negotiate_client_server_capabilities';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'negotiate_client_server_capabilities';
     l_server_capabilities_json json_object_t;
     l_resources_json           json_object_t;
     l_tools_json               json_object_t;
     l_client_extensions_json   json_object_t;
 begin
-    uc_ai_logger.log_info('client capabilities: ' || p_client_capabilities_json.to_clob(), l_scope);
+    logger.log_info('client capabilities: ' || p_client_capabilities_json.to_clob(), l_scope);
 
     /* construct negotiated capabilities */
     l_server_capabilities_json := json_object_t();
@@ -120,7 +147,7 @@ begin
         end if;
     end if;
 
-    uc_ai_logger.log_info('server capabilities: ' || l_server_capabilities_json.to_clob(), l_scope);
+    logger.log_info('server capabilities: ' || l_server_capabilities_json.to_clob(), l_scope);
     return l_server_capabilities_json;
 end negotiate_client_server_capabilities;
 
@@ -132,7 +159,7 @@ function generate_array_for_list_tools(
 )
 return json_array_t
 as
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'generate_array_for_list_tools';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_array_for_list_tools';
 
     l_tool_json json_object_t;
     l_tools_arr json_array_t;
@@ -141,7 +168,7 @@ as
     l_meta_uri   json_object_t;
     l_visibility json_array_t;
 begin
-    uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
+    logger.log_info('p_context: ' || p_context, l_scope);
 
     l_tools_arr := json_array_t();
     for r in (
@@ -180,7 +207,7 @@ begin
         end if;
         l_tools_arr.append(l_tool_json);
     end loop;
-    uc_ai_logger.log_info('tools: ' || l_tools_arr.to_clob(), l_scope);
+    logger.log_info('tools: ' || l_tools_arr.to_clob(), l_scope);
     return l_tools_arr;
 end generate_array_for_list_tools;
 
@@ -188,24 +215,102 @@ end generate_array_for_list_tools;
  * Generate JSON array of content for tools/call.
  */
 function generate_object_for_tools_call(
-    p_name in varchar2,
-    p_args in json_object_t
+    p_name           in varchar2,
+    p_args           in json_object_t,
+    p_enable_ras     in boolean default false,
+    p_current_user   in varchar2 default null,
+    p_mcp_session_id in varchar2 default null,
+    p_dynamic_roles  in sys.xs$name_list default null
 )
 return json_object_t
 as
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'generate_array_for_list_tools';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_array_for_list_tools';
 
     l_content_arr json_array_t;
-    l_out clob;
+    l_out         clob;
+    l_args_clob   clob;
     l_out_obj     json_object_t;
     l_result_json json_object_t;
     l_output_schema oj_mcp_uc_ai_tools.output_schema%type;
+    /* execute immediate */
+    l_fc_code     uc_ai_tools.function_call%type := null;
+    l_plsql_block varchar2(32767);
+    l_found_binds apex_t_varchar2 := apex_t_varchar2();
+    /* dbms_sql */
+    l_cursor_id pls_integer;
+    l_rows_fetched pls_integer;
+    l_ras_session_id raw(16);
 begin
-    uc_ai_logger.log_info('name: ' || p_name || ' args: ' || p_args.to_clob(), l_scope);
+    /* retrieve function code from uc_ai_tools */
+    begin
+        select function_call into l_fc_code from uc_ai_tools where code = p_name;
+        logger.log_info('l_fc_code ' || l_fc_code || ' for ' || p_name, l_scope);
+    exception
+        when no_data_found then
+            logger.log_error('No code registered. ' || p_name, l_scope);
+    end;
+    /* find bind variable in the function call */
+    l_found_binds := apex_string.grep(
+        p_str           => l_fc_code
+        , p_pattern       => ':([a-zA-Z0-9:\_]+)'
+        , p_modifier      => 'i'
+        , p_subexpression => '1'
+    );
+    if l_found_binds is null then
+        logger.log_info('No bind variable found', l_scope);
+    elsif l_found_binds.count > 1 then
+        logger.log_error('Too many bind variable. ' || l_fc_code, l_scope);
+        raise_application_error(-20001, 'Too many bind variable.');
+    elsif l_found_binds.count = 1 then
+        logger.log_info('l_found_binds ' || l_found_binds(1), l_scope);
+    end if;
     /*
-     * Execute Tool.
+     * Construct PL/SQL block to execute.
      */
-    l_out := uc_ai_tools_api.execute_tool(p_name, p_args);
+    if p_enable_ras then
+        l_plsql_block := C_PLSQL_BLOCK_RAS;
+    else
+        l_plsql_block := C_PLSQL_BLOCK;
+    end if;
+    l_plsql_block := replace(l_plsql_block, '#FC_CODE#', l_fc_code);
+    l_plsql_block := replace(l_plsql_block, '#SESSION_USER#', sys_context('USERENV', 'SESSION_USER'));
+    l_plsql_block := replace(l_plsql_block, '#CURRENT_USER#', sys_context('USERENV', 'CURRENT_USER'));
+    l_plsql_block := replace(l_plsql_block, '#AUTHENTICATED_IDENTITY#', p_current_user);
+    l_plsql_block := replace(l_plsql_block, '#MCP_SESSION_ID#'        , p_mcp_session_id);
+    logger.log_info('l_plsql_block: ' || l_plsql_block,  l_scope);
+    /*
+     * Execute Tool by DBMS_SQL.
+     */
+    l_cursor_id := sys.dbms_sql.open_cursor;
+    sys.dbms_sql.parse(l_cursor_id, l_plsql_block, sys.dbms_sql.native);
+    sys.dbms_sql.bind_variable(l_cursor_id, ':return_val', l_out);
+    if l_found_binds is not null then
+        /* convert argument object to clob */
+        l_args_clob := null;
+        if p_args is not null then
+            l_args_clob := p_args.to_clob();
+        end if;
+        logger.log_info('argument ' || l_args_clob, l_scope);
+        sys.dbms_sql.bind_variable(l_cursor_id, ':' || l_found_binds(1),  l_args_clob);
+    end if;
+    if p_enable_ras then
+        /*
+         * Real Applicaiton Security Support.
+         */
+        begin
+            select sessionid into l_ras_session_id from dba_xs_sessions where cookie = p_current_user || '-' || p_mcp_session_id;
+        exception
+            when no_data_found then
+                l_ras_session_id := null;
+                logger.log_info('No XS Session created.' || p_mcp_session_id, l_scope);
+        end;
+        sys.dbms_sql.bind_variable(l_cursor_id, ':sessionid', l_ras_session_id);
+        sys.dbms_sql.bind_variable(l_cursor_id, ':dynamic_roles', p_dynamic_roles);
+    end if;
+    l_rows_fetched := sys.dbms_sql.execute(l_cursor_id);
+    sys.dbms_sql.variable_value(l_cursor_id, ':return_val', l_out);
+    sys.dbms_sql.close_cursor(l_cursor_id);
+    logger.log_info('return_val: ' || l_out, l_scope);
     /* Format output.  */
     l_content_arr := json_array_t();
     l_out_obj     := json_object_t();
@@ -221,7 +326,7 @@ begin
         l_result_json.put('structuredContent', json_object_t(l_out));
     end if;
     l_result_json.put('isError', false);
-    uc_ai_logger.log_info('result: ' || l_result_json.to_clob(), l_scope);
+    logger.log_info('result: ' || l_result_json.to_clob(), l_scope);
     return l_result_json;
 end generate_object_for_tools_call;
 
@@ -235,7 +340,7 @@ function generate_array_for_list_ui_resources(
 )
 return json_array_t
 is
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'generate_array_for_list_ui_resources';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_array_for_list_ui_resources';
 
     l_resources  json_array_t  := json_array_t();
 
@@ -253,7 +358,7 @@ is
     l_permissions    json_object_t;
 
 begin
-    uc_ai_logger.log_info('p_context: ' || p_context, l_scope);
+    logger.log_info('p_context: ' || p_context, l_scope);
     -- -------------------------------------------------------
     -- Loop through all resources
     -- -------------------------------------------------------
@@ -358,7 +463,7 @@ begin
     -- -------------------------------------------------------
     -- 5. Return an array of resource item.
     -- -------------------------------------------------------
-    uc_ai_logger.log_info('resources: ' || l_resources.to_clob(), l_scope);
+    logger.log_info('resources: ' || l_resources.to_clob(), l_scope);
     return l_resources;
 
 end generate_array_for_list_ui_resources;
@@ -373,7 +478,7 @@ function generate_array_for_read_ui_resource(
     p_uri in oj_mcp_ui_resources.uri%type
 ) return json_array_t
 is
-    l_scope uc_ai_logger.scope := gc_scope_prefix || 'generate_array_for_read_ui_resource';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_array_for_read_ui_resource';
 
     l_resource_id    oj_mcp_ui_resources.id%type;
     l_uri            oj_mcp_ui_resources.uri%type;
@@ -405,7 +510,7 @@ is
     l_permissions  json_object_t := json_object_t();
 
 begin
-    uc_ai_logger.log_info('uri: ' || p_uri, l_scope);
+    logger.log_info('uri: ' || p_uri, l_scope);
     -- -------------------------------------------------------
     -- 1. Fetch main resource
     -- -------------------------------------------------------
@@ -508,7 +613,7 @@ begin
     l_contents.append(l_content_item);
 
     -- text is too big to log.
-    -- uc_ai_logger.log_info('contents: ' || l_contents.to_clob(), l_scope);
+    -- logger.log_info('contents: ' || l_contents.to_clob(), l_scope);
     return l_contents;
 end generate_array_for_read_ui_resource;
 

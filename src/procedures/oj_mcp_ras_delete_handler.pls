@@ -4,7 +4,6 @@ create or replace procedure oj_mcp_ras_delete_handler
     p_status_code  out number
 )
 as
-    /* 開発中 */
     l_session_id varchar2(128);
 begin
     l_session_id := owa_util.get_cgi_env('Mcp-Session-Id');

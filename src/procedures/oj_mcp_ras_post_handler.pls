@@ -1,11 +1,11 @@
-create or replace procedure oj_mcp_ras_post_handler
+create or replace procedure oj_mcp_ras_post_handler 
 (
     p_body         in blob,
     p_current_user in varchar2,
     p_status_code  out number
 )
+authid current_user
 as
-    /* 開発中 */
     l_response    blob;
     l_session_id  varchar2(128);
     l_status_code number;
@@ -19,6 +19,7 @@ begin
         ,p_response    => l_response
         ,p_session_id  => l_session_id
         ,p_status_code => l_status_code
+        ,p_enable_ras  => true
     );
     /*
      * Return the response to the caller.

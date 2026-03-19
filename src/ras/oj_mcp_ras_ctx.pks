@@ -1,30 +1,33 @@
-create or replace package oj_mcp_ras_ctx authid current_user
+create or replace package oj_mcp_ras_ctx
+    authid current_user
 as
 
 /**
- * If an RAS session associated with the MCP session ID obtained from Mcp-Session-Id 
- * and the user ID exists,
- * attach that session to the database session. Otherwise, create an RAS session 
- * and then attach it to the database session.
+ * Prepare the application context HREMP by querying the mapping table AUTH_USERS 
+ * using the authenticated user :current_user, 
+ * and set the corresponding employee_id and department_id.
  */
-procedure attach_session(
-    p_current_user  in varchar2,
-    p_dynamic_roles in varchar2,
-    p_id            out number
-);
+function prepare_namespace(
+    p_username  in varchar2,
+    p_namespace in varchar2
+)
+return sys.dbms_xs_nsattrlist;
 
 /**
- * Detach the RAS session from the database session.
+ * Create an RAS session.
  */
-procedure detach_session(
-    p_id in number default null
+procedure create_session(
+    p_current_user   in varchar2,
+    p_mcp_session_id in varchar2,
+    p_nsattrlist     in sys.dbms_xs_nsattrlist
 );
 
 /**
  * Destroy the RAS session.
  */
 procedure destroy_session(
-    p_current_user in varchar2
+    p_current_user   in varchar2,
+    p_mcp_session_id in varchar2
 );
 
 end oj_mcp_ras_ctx;

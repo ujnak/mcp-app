@@ -3,6 +3,7 @@
  * -----------------------------------------------------------------------------
  */
 create or replace package oj_mcp_app_server
+authid current_user
 as
 /**
  * Standard Error Code of JSON-PRC.
@@ -31,6 +32,7 @@ procedure ords_handler(
     ,p_response     out blob
     ,p_session_id   out varchar2
     ,p_status_code  out number
+    ,p_enable_ras   in boolean default false
 );
 
 end oj_mcp_app_server;

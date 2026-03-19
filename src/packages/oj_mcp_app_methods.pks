@@ -1,4 +1,5 @@
 create or replace package oj_mcp_app_methods
+authid current_user
 as
 
 /**
@@ -51,8 +52,12 @@ return json_array_t;
  * Generate JSON array of content for tools/call.
  */
 function generate_object_for_tools_call(
-    p_name in varchar2,
-    p_args in json_object_t
+    p_name           in varchar2,
+    p_args           in json_object_t,
+    p_enable_ras     in boolean default false,
+    p_current_user   in varchar2 default null,
+    p_mcp_session_id in varchar2 default null,
+    p_dynamic_roles  in sys.xs$name_list default null
 )
 return json_object_t;
 
