@@ -617,15 +617,12 @@ as
                     p_nsattrlist     => l_nsattrlist
                 );
                 logger.log_info('XS Session created. ' || p_session_id, l_scope);
-                g_enable_ras     := true;
-                g_current_user   := l_username;
-                g_mcp_session_id := p_session_id;
             else
-                g_enable_ras     := false;
-                g_current_user   := null;
-                g_mcp_session_id := null;
                 logger.log_info('XS Session is not created.', l_scope);
             end if;                  
+            g_enable_ras     := p_enable_ras;
+            g_current_user   := l_username;
+            g_mcp_session_id := p_session_id;
         else
             /* Attach the session if the session ID exists. */
             if p_session_id is not null then
@@ -635,15 +632,10 @@ as
                     ,p_session_id => p_session_id
                 );
                 logger.log_info('MCP session is attachted to APEX session ' || p_session_id, l_scope);
-                if p_enable_ras then
-                    g_enable_ras     := true;
-                    g_current_user   := l_username;
-                    g_mcp_session_id := p_session_id;
-                else
-                    g_enable_ras     := false;
-                    g_current_user   := null;
-                    g_mcp_session_id := null;
-                end if;
+                /* update global variables */
+                g_enable_ras     := p_enable_ras;
+                g_current_user   := l_username;
+                g_mcp_session_id := p_session_id;
             else
                 p_status_code := 400;
                 p_response := oj_mcp_jsonrpc_utils.create_error_response(
