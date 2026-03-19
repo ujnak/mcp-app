@@ -3,6 +3,12 @@ as
 
 gc_scope_prefix constant varchar2(31 char) := lower($$plsql_unit) || '.';
 
+/*
+ * The execution of dynamic PL/SQL code using DBMS_SQL is based 
+ * on the UC_AI_TOOLS_API package provided by United Codes.
+ * In addition, the value from the UC_AI_TOOLS.FUNCTION_CALL table is used
+ * as the string for #FC_CODE#.
+ */
 C_PLSQL_BLOCK constant varchar2(32767) := q'[declare
     function user_function
     return clob
@@ -87,8 +93,8 @@ begin
 end set_log_level;
 
 /**
-    * Client Server capability negotiation.
-    */
+ * Client Server capability negotiation.
+ */
 function negotiate_client_server_capabilities(
     p_client_capabilities_json in json_object_t
 ) return json_object_t
@@ -285,7 +291,6 @@ begin
     sys.dbms_sql.parse(l_cursor_id, l_plsql_block, sys.dbms_sql.native);
     sys.dbms_sql.bind_variable(l_cursor_id, ':return_val', l_out);
     if l_found_binds is not null then
-        /* convert argument object to clob */
         l_args_clob := null;
         if p_args is not null then
             l_args_clob := p_args.to_clob();
@@ -299,13 +304,13 @@ begin
          */
         begin
             select sessionid into l_ras_session_id from dba_xs_sessions where cookie = p_current_user || '-' || p_mcp_session_id;
+            sys.dbms_sql.bind_variable(l_cursor_id, ':sessionid', l_ras_session_id);
+            sys.dbms_sql.bind_variable(l_cursor_id, ':dynamic_roles', p_dynamic_roles);
         exception
             when no_data_found then
                 l_ras_session_id := null;
                 logger.log_info('No XS Session created.' || p_mcp_session_id, l_scope);
         end;
-        sys.dbms_sql.bind_variable(l_cursor_id, ':sessionid', l_ras_session_id);
-        sys.dbms_sql.bind_variable(l_cursor_id, ':dynamic_roles', p_dynamic_roles);
     end if;
     l_rows_fetched := sys.dbms_sql.execute(l_cursor_id);
     sys.dbms_sql.variable_value(l_cursor_id, ':return_val', l_out);

@@ -9,8 +9,35 @@ as
     g_enable_ras     boolean          := false;
     g_current_user   varchar2(128)    := null;
     g_mcp_session_id varchar2(128)    := null;
-    g_dynamic_roles  sys.xs$name_list := xs$name_list('EMPLOYEE','MCPRUNTIME');
-    g_namespace      varchar2(128)    := 'HREMP';
+    /*
+     * The variables g_dynamic_roles and g_namespace are initialized within oj_mcp_ras_post_handler,
+     * which serves as the caller of ords_handler.
+     */
+    g_dynamic_roles  sys.xs$name_list := null;
+    g_namespace      varchar2(128)    := null;
+
+    /*
+     * Setters.
+     */
+    procedure set_dynamic_roles(
+        value in sys.xs$name_list
+    )
+    as
+    begin
+        g_dynamic_roles := value;
+    end set_dynamic_roles;
+
+    procedure set_namespace(
+        value in varchar2
+    )
+    as
+    begin
+        g_namespace := value;
+    end set_namespace;
+
+    /*
+     * MCP handler implementation.
+     */
 
     procedure initialize(
         p_username     in varchar2
@@ -279,7 +306,7 @@ as
         l_uri varchar2(128);
         l_result_json  json_object_t;
         l_contents_arr json_array_t;
-        l_error_json    json_object_t;
+        l_error_json   json_object_t;
     begin
         logger.log_info('resources_read is called with parameters: ' || p_params, l_scope);
         /*

@@ -5,11 +5,15 @@ create or replace procedure oj_mcp_post_handler
     p_status_code  out number
 )
 as
+    l_scope logger_logs.scope%type := 'oj_mcp_post_handler';
+
     l_response    blob;
     l_session_id  varchar2(128);
     l_status_code number;
     l_request     blob;
 begin
+    logger.log_info('Enter POST Handler', l_scope);
+
     l_request := p_body;
     oj_mcp_app_server.ords_handler(
         p_script_name  => owa_util.get_cgi_env('SCRIPT_NAME') || owa_util.get_cgi_env('PATH_INFO') 
@@ -36,5 +40,7 @@ begin
         sys.owa_util.http_header_close;
     end if;
     commit;
+
+    logger.log_info('Leave POST Handler', l_scope);
 end oj_mcp_post_handler;
 /
