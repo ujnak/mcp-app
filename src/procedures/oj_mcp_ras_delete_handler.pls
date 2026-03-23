@@ -14,6 +14,19 @@ begin
     if l_session_id is not null then
         apex_session.delete_session(l_session_id);
     end if;
+    /*
+     * Delete RAS session.
+     */
+    begin
+        oj_mcp_ras_ctx.destroy_session(
+            p_current_user => p_current_user,
+            p_mcp_session_id => l_session_id
+        );
+    exception
+        when others then
+            logger.log_info('Failed to destroy RAS Session.' || sqlerrm, l_scope);
+    end;
+
     p_status_code := 204;
 
     logger.log_info('Leave RAS DELETE Handler', l_scope);

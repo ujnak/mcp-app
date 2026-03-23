@@ -261,8 +261,11 @@ begin
      */
     l_plsql_block := C_PLSQL_BLOCK;
     l_plsql_block := replace(l_plsql_block, '#FC_CODE#', l_fc_code);
-    l_plsql_block := replace(l_plsql_block, '#SESSION_USER#', sys_context('USERENV', 'SESSION_USER'));
-    l_plsql_block := replace(l_plsql_block, '#CURRENT_USER#', sys_context('USERENV', 'CURRENT_USER'));
+    /* The username must be enclosed in double quotes. */
+    l_plsql_block := replace(l_plsql_block, '#SESSION_USER#', 
+        sys.dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER')));
+    l_plsql_block := replace(l_plsql_block, '#CURRENT_USER#',
+        sys.dbms_assert.enquote_name(sys_context('USERENV', 'CURRENT_USER')));
     /* Sub in a Bearer token is external input, it must be sanitized before use */
     l_plsql_block := replace(l_plsql_block, '#AUTHENTICATED_IDENTITY#',
         sys.dbms_assert.enquote_name(str => p_current_user, capitalize => false));
