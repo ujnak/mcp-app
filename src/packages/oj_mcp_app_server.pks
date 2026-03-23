@@ -6,7 +6,7 @@ create or replace package oj_mcp_app_server
 authid current_user
 as
 /**
- * Standard Error Code of JSON-PRC.
+ * Standard Error Code of JSON-RPC.
  */
 C_PARSE_ERROR      constant number := -32700;
 C_INVALID_REQUEST  constant number := -32600;

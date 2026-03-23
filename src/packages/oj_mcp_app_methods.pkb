@@ -231,10 +231,14 @@ as
     l_rows_fetched pls_integer;
     l_ras_session_id raw(16);
     is_error boolean := false;
+    /* resource manager */
+    l_resource_consumer_group_new varchar2(32) := null;
+    l_resource_consumer_group_old varchar2(32) := null;
 begin
     /* retrieve function code from uc_ai_tools */
     begin
-        select function_call into l_fc_code from uc_ai_tools where code = p_name;
+        select function_call, resource_consumer_group into l_fc_code, l_resource_consumer_group_new
+        from oj_mcp_uc_ai_tools where code = p_name;
         logger.log_info('l_fc_code ' || l_fc_code || ' for ' || p_name, l_scope);
     exception
         when no_data_found then
@@ -271,6 +275,36 @@ begin
         sys.dbms_assert.enquote_name(str => p_current_user, capitalize => false));
     l_plsql_block := replace(l_plsql_block, '#MCP_SESSION_ID#', p_mcp_session_id);
     logger.log_info('l_plsql_block: ' || l_plsql_block,  l_scope);
+    /*
+     * switch resource consumer group.
+     */
+    if l_resource_consumer_group_new is not null then
+        $IF true $THEN
+            begin
+                select resource_consumer_group into l_resource_consumer_group_old
+                from v$session where sid = sys_context('USERENV','SID');
+                cs_session.switch_service(l_resource_consumer_group_new);
+            exception
+                when others then
+                    /* Do not apply it if the current resource consumer group cannot be determined from V$SESSION. */
+                    logger.log_info('No Resource Consumer Group available. ' || sqlerrm, l_scope);
+                    l_resource_consumer_group_new := null;
+            end;
+        $ELSE
+            begin
+                dbms_resource_manager.switch_current_consumer_group(
+                    new_consumer_group => l_resource_consumer_group_new,
+                    old_consumer_group => l_resource_consumer_group_old,
+                    initial_group_on_error => false
+                );
+            exception
+                when others then
+                    logger.log_error('Failed to switch resource consumer group. ' ||
+                        l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
+                    l_resource_consumer_group_new := null;
+            end;
+        $END
+    end if;
     /*
      * Execute Tool by DBMS_SQL.
      */
@@ -357,6 +391,26 @@ begin
         when others then
             logger.log_info('close cursor failed. ' || sqlerrm, l_scope);
     end;
+    /* 
+     * Resource Manager Support.
+     */
+    if l_resource_consumer_group_old is not null then
+        begin
+            $IF true $THEN
+                cs_session.switch_service(l_resource_consumer_group_old);
+            $ELSE
+                dbms_resource_manager.switch_current_consumer_group(
+                    new_consumer_group => l_resource_consumer_group_old,
+                    -- 
+                    old_consumer_group => l_resource_consumer_group_new,
+                    initial_group_on_error => false
+                );
+            $END
+        exception
+            when others then
+                logger.log_info('Failed to change resource consumer group. ' || sqlerrm, l_scope);
+        end;
+    end if;
     /* Format output.  */
     l_content_arr := json_array_t();
     l_out_obj     := json_object_t();

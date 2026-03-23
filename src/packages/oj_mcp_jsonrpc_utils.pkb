@@ -4,7 +4,7 @@ as
     gc_scope_prefix constant varchar2(31 char) := lower($$plsql_unit) || '.';
 
     /**
-     * Create a JSONRPC messege from success result.
+     * Create a JSONRPC message from success result.
      */
     function create_success_response(
         p_id       in number
