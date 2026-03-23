@@ -31,7 +31,13 @@ begin
             || ', HTTP status code: ' || apex_web_service.g_status_code, l_scope);
         raise e_failed_to_get_html_bundle;
     end if;
-    l_html_bundle_clob := replace(l_html_bundle_clob, '<script ', '<script type="module" ');
+    /* 
+     * APEX does not assign the type="module" attribute when embedding inline JavaScript;
+     * this applies to the relevant target.
+     */
+    if regexp_instr(l_html_bundle_clob, '<script\s+type="module"\s') = 0 then
+        l_html_bundle_clob := replace(l_html_bundle_clob, '<script ', '<script type="module" ');
+    end if;
     merge into oj_mcp_ui_resources t
     using (
         select

@@ -80,7 +80,7 @@ as
         if l_client_capabilities_json is null then
             l_error_json := json_object_t();
             l_error_json.put('code', C_INVALID_PARAMS);
-            l_error_json.put('message', 'Invalid parameters: no capabilies in initialize');
+            l_error_json.put('message', 'Invalid parameters: no capabilities in initialize');
             p_error := l_error_json.to_clob();
             p_result := null;
             p_status_code := 400;
@@ -89,7 +89,7 @@ as
 
         /*
          * choose "2025-11-25" as a protocol version
-         * if no prtocolVersion is requested by the client.
+         * if no protocolVersion is requested by the client.
          */
         l_client_protocol_version  := l_params.get_string('protocolVersion');
         if l_client_protocol_version is null then
@@ -343,7 +343,7 @@ as
          */
         l_contents_arr := oj_mcp_app_methods.generate_array_for_read_ui_resource(l_uri);
 
-        /* Format outout.  */
+        /* Format output.  */
         l_result_json := json_object_t();
         l_result_json.put('contents', l_contents_arr);
         p_result := l_result_json.to_clob();
@@ -631,7 +631,7 @@ as
                     ,p_page_id    => l_apex_page_id
                     ,p_session_id => p_session_id
                 );
-                logger.log_info('MCP session is attachted to APEX session ' || p_session_id, l_scope);
+                logger.log_info('MCP session is attached to APEX session ' || p_session_id, l_scope);
                 /* update global variables */
                 g_enable_ras     := p_enable_ras;
                 g_current_user   := l_username;
@@ -722,6 +722,15 @@ as
                 p_code    => C_INTERNAL_ERROR,
                 p_message => 'Internal Server Error: ' || sqlerrm
             );
+            /* 
+             * Detach the APEX session regardless of the context.
+             */
+            begin
+                apex_session.detach;
+            exception
+                when others then
+                    logger.log_info('Failed to detach APEX session: ' || g_mcp_session_id || ' ' || sqlerrm, l_scope);
+            end;
     end ords_handler;
 
 end oj_mcp_app_server;

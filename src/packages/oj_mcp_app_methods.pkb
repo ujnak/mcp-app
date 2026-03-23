@@ -214,7 +214,7 @@ function generate_object_for_tools_call(
 )
 return json_object_t
 as
-    l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_array_for_list_tools';
+    l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_object_for_tools_call';
 
     l_content_arr json_array_t;
     l_out         clob;
@@ -239,7 +239,7 @@ begin
     exception
         when no_data_found then
             logger.log_error('No code registered. ' || p_name, l_scope);
-            raise_application_error(-20001, 'No code registereed.');
+            raise_application_error(-20001, 'No code registered.');
     end;
     /* find bind variable in the function call */
     l_found_binds := apex_string.grep(
@@ -252,7 +252,7 @@ begin
         logger.log_info('No bind variable found', l_scope);
     elsif l_found_binds.count > 1 then
         logger.log_error('Too many bind variable. ' || l_fc_code, l_scope);
-        raise_application_error(-20002, 'Too many bind variable.');
+        raise_application_error(-20002, 'Too many bind variable. ' || p_name);
     elsif l_found_binds.count = 1 then
         logger.log_info('l_found_binds ' || l_found_binds(1), l_scope);
     end if;
@@ -263,8 +263,10 @@ begin
     l_plsql_block := replace(l_plsql_block, '#FC_CODE#', l_fc_code);
     l_plsql_block := replace(l_plsql_block, '#SESSION_USER#', sys_context('USERENV', 'SESSION_USER'));
     l_plsql_block := replace(l_plsql_block, '#CURRENT_USER#', sys_context('USERENV', 'CURRENT_USER'));
-    l_plsql_block := replace(l_plsql_block, '#AUTHENTICATED_IDENTITY#', p_current_user);
-    l_plsql_block := replace(l_plsql_block, '#MCP_SESSION_ID#'        , p_mcp_session_id);
+    /* Sub in a Bearer token is external input, it must be sanitized before use */
+    l_plsql_block := replace(l_plsql_block, '#AUTHENTICATED_IDENTITY#',
+        sys.dbms_assert.enquote_name(str => p_current_user, capitalize => false));
+    l_plsql_block := replace(l_plsql_block, '#MCP_SESSION_ID#', p_mcp_session_id);
     logger.log_info('l_plsql_block: ' || l_plsql_block,  l_scope);
     /*
      * Execute Tool by DBMS_SQL.

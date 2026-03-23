@@ -10,7 +10,7 @@ begin
     l_roles(1)   := 'ORDSUsers';
     ords.define_privilege(
         p_privilege_name => 'oracle.example.mcp',
-        p_label          => 'Priviledge for MCP',
+        p_label          => 'Privilege for MCP',
         p_roles          => l_roles,
         p_modules        => l_modules,
         p_patterns       => l_patterns    -- no assignment
