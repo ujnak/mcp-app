@@ -279,7 +279,7 @@ begin
      * switch resource consumer group.
      */
     if l_resource_consumer_group_new is not null then
-        $IF true $THEN
+        $IF $$is_autonomous $THEN
             begin
                 select resource_consumer_group into l_resource_consumer_group_old
                 from v$session where sid = sys_context('USERENV','SID');
@@ -292,11 +292,19 @@ begin
             end;
         $ELSE
             begin
-                dbms_resource_manager.switch_current_consumer_group(
-                    new_consumer_group => l_resource_consumer_group_new,
-                    old_consumer_group => l_resource_consumer_group_old,
-                    initial_group_on_error => false
-                );
+                $IF DBMS_DB_VERSION.VER_LE_19 $THEN
+                    dbms_session.switch_current_consumer_group(
+                        new_consumer_group => l_resource_consumer_group_new,
+                        old_consumer_group => l_resource_consumer_group_old,
+                        initial_group_on_error => false
+                    );
+                $ELSE
+                    dbms_resource_manager.switch_current_consumer_group(
+                        new_consumer_group => l_resource_consumer_group_new,
+                        old_consumer_group => l_resource_consumer_group_old,
+                        initial_group_on_error => false
+                    );
+                $END
             exception
                 when others then
                     logger.log_error('Failed to switch resource consumer group. ' ||
@@ -396,15 +404,24 @@ begin
      */
     if l_resource_consumer_group_old is not null then
         begin
-            $IF true $THEN
+            $IF $$is_autonomous $THEN
                 cs_session.switch_service(l_resource_consumer_group_old);
             $ELSE
-                dbms_resource_manager.switch_current_consumer_group(
-                    new_consumer_group => l_resource_consumer_group_old,
-                    -- 
-                    old_consumer_group => l_resource_consumer_group_new,
-                    initial_group_on_error => false
-                );
+                $IF DBMS_DB_VERSION.VER_LE_19 $THEN
+                    dbms_session.switch_current_consumer_group(
+                        new_consumer_group => l_resource_consumer_group_old,
+                        -- 
+                        old_consumer_group => l_resource_consumer_group_new,
+                        initial_group_on_error => false
+                    );
+                $ELSE
+                    dbms_resource_manager.switch_current_consumer_group(
+                        new_consumer_group => l_resource_consumer_group_old,
+                        -- 
+                        old_consumer_group => l_resource_consumer_group_new,
+                        initial_group_on_error => false
+                    );
+                $END
             $END
         exception
             when others then
