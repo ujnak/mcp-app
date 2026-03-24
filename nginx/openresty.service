@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenResty
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/openresty-nginx.conf
+ExecReload=/usr/local/openresty/nginx/sbin/nginx -s reload -c /etc/nginx/openresty-nginx.conf
+ExecStop=/usr/local/openresty/nginx/sbin/nginx -s quit -c /etc/nginx/openresty-nginx.conf
+PIDFile=/run/openresty.pid
+
+[Install]
+WantedBy=multi-user.target
