@@ -603,7 +603,7 @@ as
              */
             if p_enable_ras then
                 logger.log_info('Creating RAS session...', l_scope);
-                l_nsattrlist := oj_mcp_ras_ctx.prepare_namespace(
+                l_nsattrlist := oj_mcp_ras_config.prepare_namespace(
                     p_username => p_username,
                     p_namespace => g_namespace
                 );

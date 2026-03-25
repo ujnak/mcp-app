@@ -3,17 +3,6 @@ create or replace package oj_mcp_ras_ctx
 as
 
 /**
- * Prepare the application context HREMP by querying the mapping table AUTH_USERS 
- * using the authenticated user :current_user, 
- * and set the corresponding employee_id and department_id.
- */
-function prepare_namespace(
-    p_username  in varchar2,
-    p_namespace in varchar2
-)
-return sys.dbms_xs_nsattrlist;
-
-/**
  * Create an RAS session.
  */
 procedure create_session(

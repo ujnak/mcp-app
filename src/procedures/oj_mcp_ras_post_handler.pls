@@ -15,8 +15,8 @@ as
 begin
     logger.log_info('Enter RAS POST Handler', l_scope);
     l_request := p_body;
-    oj_mcp_app_server.set_dynamic_roles(xs$name_list('EMPLOYEE','MCPRUNTIME'));
-    oj_mcp_app_server.set_namespace('HREMP');
+    oj_mcp_app_server.set_dynamic_roles(oj_mcp_ras_config.get_dynamic_roles);
+    oj_mcp_app_server.set_namespace(oj_mcp_ras_config.get_namespace);
     oj_mcp_app_server.ords_handler(
         p_script_name  => owa_util.get_cgi_env('SCRIPT_NAME') || owa_util.get_cgi_env('PATH_INFO') 
         ,p_username    => p_current_user
