@@ -110,7 +110,7 @@ begin
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'get_authenticated_identity',
     p_description => 'Get current sign-in username.',
-    p_function_call => 'return ''{ "username": "#AUTHENTICATED_IDENTITY#" }'';',
+    p_function_call => 'return ''{ "username": #AUTHENTICATED_IDENTITY# }'';',
     p_json_schema => l_schema,
     p_tags => apex_t_varchar2('sampleserver','run-sql')
   );

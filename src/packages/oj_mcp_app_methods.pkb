@@ -312,6 +312,7 @@ begin
                     l_resource_consumer_group_new := null;
             end;
         $END
+        logger.log_info('Current resource consumer group set to ' || l_resource_consumer_group_new, l_scope);
     end if;
     /*
      * Execute Tool by DBMS_SQL.
@@ -423,6 +424,7 @@ begin
                     );
                 $END
             $END
+            logger.log_info('Revert resource consumer group back to ' || l_resource_consumer_group_old, l_scope);
         exception
             when others then
                 logger.log_info('Failed to change resource consumer group. ' || sqlerrm, l_scope);
