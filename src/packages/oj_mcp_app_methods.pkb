@@ -291,26 +291,33 @@ begin
                     l_resource_consumer_group_new := null;
             end;
         $ELSE
-            begin
-                $IF DBMS_DB_VERSION.VER_LE_19 $THEN
+            $IF DBMS_DB_VERSION.VER_LE_19 $THEN
+                begin
                     dbms_session.switch_current_consumer_group(
                         new_consumer_group => l_resource_consumer_group_new,
                         old_consumer_group => l_resource_consumer_group_old,
                         initial_group_on_error => false
                     );
-                $ELSE
+                exception
+                    when others then
+                        logger.log_error('Failed to switch resource consumer group. ' ||
+                            l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
+                        l_resource_consumer_group_new := null;
+                end;
+            $ELSE
+                begin
                     dbms_resource_manager.switch_current_consumer_group(
                         new_consumer_group => l_resource_consumer_group_new,
                         old_consumer_group => l_resource_consumer_group_old,
                         initial_group_on_error => false
                     );
-                $END
-            exception
-                when others then
-                    logger.log_error('Failed to switch resource consumer group. ' ||
-                        l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
-                    l_resource_consumer_group_new := null;
-            end;
+                exception
+                    when others then
+                        logger.log_error('Failed to switch resource consumer group. ' ||
+                            l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
+                        l_resource_consumer_group_new := null;
+                end;
+            $END
         $END
         logger.log_info('Current resource consumer group set to ' || l_resource_consumer_group_new, l_scope);
     end if;
