@@ -1,13 +1,18 @@
 [Unit]
-Description=OpenResty
-After=network.target
+Description=The OpenResty Application Platform
+After=syslog.target network-online.target remote-fs.target nss-lookup.target
+Wants=network-online.target
 
 [Service]
 Type=forking
-ExecStart=/usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/openresty-nginx.conf
-ExecReload=/usr/local/openresty/nginx/sbin/nginx -s reload -c /etc/nginx/openresty-nginx.conf
-ExecStop=/usr/local/openresty/nginx/sbin/nginx -s quit -c /etc/nginx/openresty-nginx.conf
 PIDFile=/run/openresty.pid
+ExecStartPre=/usr/local/openresty/nginx/sbin/nginx -t -c /etc/nginx/openresty-nginx.conf
+ExecStart=/usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/openresty-nginx.conf
+ExecStartPost=/bin/sleep 1
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+RuntimeDirectory=openresty
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
