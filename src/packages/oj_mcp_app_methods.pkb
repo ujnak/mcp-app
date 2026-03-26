@@ -291,33 +291,18 @@ begin
                     l_resource_consumer_group_new := null;
             end;
         $ELSE
-            $IF DBMS_DB_VERSION.VER_LE_19 $THEN
-                begin
-                    dbms_session.switch_current_consumer_group(
-                        new_consumer_group => l_resource_consumer_group_new,
-                        old_consumer_group => l_resource_consumer_group_old,
-                        initial_group_on_error => false
-                    );
-                exception
-                    when others then
-                        logger.log_error('Failed to switch resource consumer group. ' ||
-                            l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
-                        l_resource_consumer_group_new := null;
-                end;
-            $ELSE
-                begin
-                    dbms_resource_manager.switch_current_consumer_group(
-                        new_consumer_group => l_resource_consumer_group_new,
-                        old_consumer_group => l_resource_consumer_group_old,
-                        initial_group_on_error => false
-                    );
-                exception
-                    when others then
-                        logger.log_error('Failed to switch resource consumer group. ' ||
-                            l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
-                        l_resource_consumer_group_new := null;
-                end;
-            $END
+            begin
+                dbms_session.switch_current_consumer_group(
+                    new_consumer_group => l_resource_consumer_group_new,
+                    old_consumer_group => l_resource_consumer_group_old,
+                    initial_group_on_error => false
+                );
+            exception
+                when others then
+                    logger.log_error('Failed to switch resource consumer group. ' ||
+                        l_resource_consumer_group_new || ' ' || sqlerrm, l_scope);
+                    l_resource_consumer_group_new := null;
+            end;
         $END
         logger.log_info('Current resource consumer group set to ' || l_resource_consumer_group_new, l_scope);
     end if;
@@ -415,21 +400,12 @@ begin
             $IF $$is_autonomous $THEN
                 cs_session.switch_service(l_resource_consumer_group_old);
             $ELSE
-                $IF DBMS_DB_VERSION.VER_LE_19 $THEN
-                    dbms_session.switch_current_consumer_group(
-                        new_consumer_group => l_resource_consumer_group_old,
-                        -- 
-                        old_consumer_group => l_resource_consumer_group_new,
-                        initial_group_on_error => false
-                    );
-                $ELSE
-                    dbms_resource_manager.switch_current_consumer_group(
-                        new_consumer_group => l_resource_consumer_group_old,
-                        -- 
-                        old_consumer_group => l_resource_consumer_group_new,
-                        initial_group_on_error => false
-                    );
-                $END
+                dbms_session.switch_current_consumer_group(
+                    new_consumer_group => l_resource_consumer_group_old,
+                    -- 
+                    old_consumer_group => l_resource_consumer_group_new,
+                    initial_group_on_error => false
+                );
             $END
             logger.log_info('Revert resource consumer group back to ' || l_resource_consumer_group_old, l_scope);
         exception
