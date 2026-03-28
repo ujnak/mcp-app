@@ -8,6 +8,9 @@ as
  
 gc_scope_prefix constant varchar2(31 char) := lower($$plsql_unit) || '.';
 
+G_DYNAMIC_ROLES constant sys.xs$name_list := sys.xs$name_list('EMPLOYEE','MCPRUNTIME');
+G_NAMESPACE     constant varchar2(80)     := 'HREMP';
+
 /**
  * Return the dynamic roles assigned to the session.
  */
@@ -15,25 +18,14 @@ function get_dynamic_roles
 return sys.xs$name_list
 as
 begin
-    return xs$name_list('EMPLOYEE','MCPRUNTIME');
+    return G_DYNAMIC_ROLES;
 end get_dynamic_roles;
-
-/**
- * Return the name of the namespace that has already been created in RAS.
- */
-function get_namespace
-return varchar2
-as
-begin
-    return 'HREMP';
-end get_namespace;
 
 /**
  * Prepare namespaces.
  */
 function prepare_namespace(
-    p_username  in varchar2,
-    p_namespace in varchar2
+    p_username  in varchar2
 )
 return sys.dbms_xs_nsattrlist
 as
@@ -61,8 +53,8 @@ begin
      */
     l_nsattrlist := sys.dbms_xs_nsattrlist();
     l_nsattrlist.extend(2);
-    l_nsattrlist(1) := sys.dbms_xs_nsattr(p_namespace, 'employee_id', l_employee_id);
-    l_nsattrlist(2) := sys.dbms_xs_nsattr(p_namespace, 'department_id', l_department_id);
+    l_nsattrlist(1) := sys.dbms_xs_nsattr(G_NAMESPACE, 'employee_id', l_employee_id);
+    l_nsattrlist(2) := sys.dbms_xs_nsattr(G_NAMESPACE, 'department_id', l_department_id);
     return l_nsattrlist;
 end prepare_namespace;
 

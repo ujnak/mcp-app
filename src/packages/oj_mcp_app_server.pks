@@ -21,10 +21,6 @@ procedure set_dynamic_roles(
     value in sys.xs$name_list
 );
 
-procedure set_namespace(
-    value in varchar2
-);
-
 /**
  * Execute it as the POST handler for the ORDS REST API template named "mcp",
  *

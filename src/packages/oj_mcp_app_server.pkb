@@ -10,11 +10,10 @@ as
     g_current_user   varchar2(128)    := null;
     g_mcp_session_id varchar2(128)    := null;
     /*
-     * The variables g_dynamic_roles and g_namespace are initialized within oj_mcp_ras_post_handler,
+     * The variables g_dynamic_roles is initialized within oj_mcp_ras_post_handler,
      * which serves as the caller of ords_handler.
      */
     g_dynamic_roles  sys.xs$name_list := null;
-    g_namespace      varchar2(128)    := null;
 
     /*
      * Setters.
@@ -26,14 +25,6 @@ as
     begin
         g_dynamic_roles := value;
     end set_dynamic_roles;
-
-    procedure set_namespace(
-        value in varchar2
-    )
-    as
-    begin
-        g_namespace := value;
-    end set_namespace;
 
     /*
      * MCP handler implementation.
@@ -604,8 +595,7 @@ as
             if p_enable_ras then
                 logger.log_info('Creating RAS session...', l_scope);
                 l_nsattrlist := oj_mcp_ras_config.prepare_namespace(
-                    p_username => p_username,
-                    p_namespace => g_namespace
+                    p_username => p_username
                 );
                 for i in 1..l_nsattrlist.count
                 loop

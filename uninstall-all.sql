@@ -36,7 +36,8 @@ declare
         'drop table oj_mcp_tools_extras',
         'drop table oj_mcp_ui_permissions',
         'drop table oj_mcp_ui_csp_domains',
-        'drop table oj_mcp_ui_resources'
+        'drop table oj_mcp_ui_resources',
+        'drop table auth_users'
     );
     e_obj_not_exist EXCEPTION;
     e_tbl_not_exist EXCEPTION;
