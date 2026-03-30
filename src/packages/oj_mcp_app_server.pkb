@@ -6,7 +6,7 @@ as
     C_MCP_SESSION_ID_HEADER constant varchar2(16) := 'Mcp-Session-Id';
 
     /* RAS support */
-    g_enable_ras     boolean          := false;
+    g_ras_config_pkg varchar2(128)    := null;
     g_current_user   varchar2(128)    := null;
     g_mcp_session_id varchar2(128)    := null;
     /*
@@ -231,10 +231,9 @@ as
         l_result_json := oj_mcp_app_methods.generate_object_for_tools_call(
             p_name => l_name,
             p_args => l_args_obj,
-            p_enable_ras => g_enable_ras,
+            p_ras_config_pkg => g_ras_config_pkg,
             p_current_user => g_current_user,
-            p_mcp_session_id => g_mcp_session_id,
-            p_dynamic_roles  => g_dynamic_roles
+            p_mcp_session_id => g_mcp_session_id
         );
         p_result := l_result_json.to_clob();
         p_error := null;
@@ -382,7 +381,7 @@ as
         ,p_response     out blob
         ,p_session_id   out varchar2
         ,p_status_code  out number
-        ,p_enable_ras   in boolean default false
+        ,p_ras_config_pkg in varchar2 default null
     )
     as
         l_scope logger_logs.scope%type := gc_scope_prefix || 'ords_handler';
@@ -592,11 +591,11 @@ as
             /*
              * Create RAS session if RAS is enabled.
              */
-            if p_enable_ras then
+            if p_ras_config_pkg is not null then
                 logger.log_info('Creating RAS session...', l_scope);
-                l_nsattrlist := oj_mcp_ras_config.prepare_namespace(
-                    p_username => p_username
-                );
+                execute immediate
+                    'begin :1 := ' || p_ras_config_pkg || '.PREPARE_NAMESPACE(:2); end;'
+                    using out l_nsattrlist, p_username;
                 for i in 1..l_nsattrlist.count
                 loop
                     logger.log_info(l_nsattrlist(i).namespace || ' ' || l_nsattrlist(i).attribute || ' ' || l_nsattrlist(i).attribute_value, l_scope);
@@ -610,7 +609,7 @@ as
             else
                 logger.log_info('XS Session is not created.', l_scope);
             end if;                  
-            g_enable_ras     := p_enable_ras;
+            g_ras_config_pkg := p_ras_config_pkg;
             g_current_user   := l_username;
             g_mcp_session_id := p_session_id;
         else
@@ -623,7 +622,7 @@ as
                 );
                 logger.log_info('MCP session is attached to APEX session ' || p_session_id, l_scope);
                 /* update global variables */
-                g_enable_ras     := p_enable_ras;
+                g_ras_config_pkg := p_ras_config_pkg;
                 g_current_user   := l_username;
                 g_mcp_session_id := p_session_id;
             else

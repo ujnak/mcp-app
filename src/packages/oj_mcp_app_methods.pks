@@ -54,10 +54,9 @@ return json_array_t;
 function generate_object_for_tools_call(
     p_name           in varchar2,
     p_args           in json_object_t,
-    p_enable_ras     in boolean default false,
+    p_ras_config_pkg in varchar2 default null,
     p_current_user   in varchar2 default null,
-    p_mcp_session_id in varchar2 default null,
-    p_dynamic_roles  in sys.xs$name_list default null
+    p_mcp_session_id in varchar2 default null
 )
 return json_object_t;
 

@@ -1,7 +1,5 @@
 @src/ras/oj_mcp_ras_ctx.pks
 @src/ras/oj_mcp_ras_ctx.pkb
-@src/ras/oj_mcp_ras_config.pks
-@src/ras/oj_mcp_ras_config.pkb
 @src/packages/oj_mcp_jsonrpc_utils.pks
 @src/packages/oj_mcp_jsonrpc_utils.pkb
 @src/packages/oj_mcp_app_utils.pks

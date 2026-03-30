@@ -105,7 +105,7 @@ begin
         * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/resources#capabilities
         */
     l_resources_json := json_object_t();
-    l_resources_json.put('subscribe', true);
+    l_resources_json.put('subscribe', false);
     l_resources_json.put('listChanged', true);
     l_server_capabilities_json.put('resources', l_resources_json);
 
@@ -207,10 +207,9 @@ end generate_array_for_list_tools;
 function generate_object_for_tools_call(
     p_name           in varchar2,
     p_args           in json_object_t,
-    p_enable_ras     in boolean default false,
+    p_ras_config_pkg in varchar2 default null,
     p_current_user   in varchar2 default null,
-    p_mcp_session_id in varchar2 default null,
-    p_dynamic_roles  in sys.xs$name_list default null
+    p_mcp_session_id in varchar2 default null
 )
 return json_object_t
 as
@@ -234,10 +233,13 @@ as
     /* resource manager */
     l_resource_consumer_group_new varchar2(32) := null;
     l_resource_consumer_group_old varchar2(32) := null;
+    /* RAS Dynamic Roles */
+    l_dynamic_roles sys.xs$name_list := null;
 begin
     /* retrieve function code from uc_ai_tools */
     begin
-        select function_call, resource_consumer_group into l_fc_code, l_resource_consumer_group_new
+        select function_call, resource_consumer_group, output_schema
+        into l_fc_code, l_resource_consumer_group_new, l_output_schema
         from oj_mcp_uc_ai_tools where code = p_name;
         logger.log_info('l_fc_code ' || l_fc_code || ' for ' || p_name, l_scope);
     exception
@@ -317,9 +319,14 @@ begin
         end if;
         logger.log_info('argument ' || l_args_clob, l_scope);
     end if;
-    if p_enable_ras then
+    if p_ras_config_pkg is not null then
         begin
             /*
+             * Get dynamic Roles
+             */
+            execute immediate 'begin :1 := ' || p_ras_config_pkg || '.GET_DYNAMIC_ROLES; end;'
+                using out l_dynamic_roles;
+                                    /*
              * Real Applicaiton Security Support.
              */
             l_ras_session_id := null;
@@ -338,7 +345,7 @@ begin
                 logger.log_info('RAS Session attaching...' || l_ras_session_id, l_scope);
                 sys.dbms_xs_sessions.attach_session(
                     sessionid            => l_ras_session_id,
-                    enable_dynamic_roles => p_dynamic_roles
+                    enable_dynamic_roles => l_dynamic_roles
                 );
                 logger.log_info('RAS Session attached. ' || l_ras_session_id, l_scope);
                 sys.dbms_sql.parse(l_cursor_id, l_plsql_block, sys.dbms_sql.native);
@@ -423,7 +430,6 @@ begin
     l_result_json := json_object_t();
     l_result_json.put('content', l_content_arr);
     /* is output_schema  defined ? if yes, include structuredContent */
-    select output_schema into l_output_schema from oj_mcp_uc_ai_tools where code = p_name;
     if l_output_schema is not null then
         l_result_json.put('structuredContent', json_object_t(l_out));
     end if;
@@ -473,98 +479,35 @@ begin
         )
         order by id
     ) loop
-
+        /*
+         * Build resource item
+         */
         l_resource_item := json_object_t();
-        l_meta          := json_object_t();
-        l_meta_ui       := json_object_t();
-        l_csp           := json_object_t();
-        l_permissions   := json_object_t();
-
-        l_connect_domains  := json_array_t();
-        l_resource_domains := json_array_t();
-        l_frame_domains    := json_array_t();
-        l_base_uri_domains := json_array_t();
-
-        -- -----------------------------------------------------
-        -- 1. Collect CSP domains
-        -- -----------------------------------------------------
-        for c in (
-            select domain_type, domain
-              from oj_mcp_ui_csp_domains
-             where resource_id = r.id
-             order by domain_type, id
-        ) loop
-            case c.domain_type
-                when 'CONNECT'  then l_connect_domains.append(c.domain);
-                when 'RESOURCE' then l_resource_domains.append(c.domain);
-                when 'FRAME'    then l_frame_domains.append(c.domain);
-                when 'BASE_URI' then l_base_uri_domains.append(c.domain);
-                else null;
-            end case;
-        end loop;
-
-        if l_connect_domains.get_size()  > 0 then l_csp.put('connectDomains',  l_connect_domains);  end if;
-        if l_resource_domains.get_size() > 0 then l_csp.put('resourceDomains', l_resource_domains); end if;
-        if l_frame_domains.get_size()    > 0 then l_csp.put('frameDomains',    l_frame_domains);    end if;
-        if l_base_uri_domains.get_size() > 0 then l_csp.put('baseUriDomains',  l_base_uri_domains); end if;
-
-        -- -----------------------------------------------------
-        -- 2. Collect permissions
-        -- -----------------------------------------------------
-        for p in (
-            select perm_camera, perm_microphone, perm_geolocation, perm_clipboard_write
-              from oj_mcp_ui_permissions
-             where resource_id = r.id
-        ) loop
-            if p.perm_camera          = 1 then l_permissions.put('camera',         json_object_t('{}')); end if;
-            if p.perm_microphone      = 1 then l_permissions.put('microphone',     json_object_t('{}')); end if;
-            if p.perm_geolocation     = 1 then l_permissions.put('geolocation',    json_object_t('{}')); end if;
-            if p.perm_clipboard_write = 1 then l_permissions.put('clipboardWrite', json_object_t('{}')); end if;
-        end loop;
-
-        -- -----------------------------------------------------
-        -- 3. Build _meta.ui object
-        -- -----------------------------------------------------
-        if l_csp.get_keys().count > 0 then
-            l_meta_ui.put('csp', l_csp);
-        end if;
-
-        if l_permissions.get_keys().count > 0 then
-            l_meta_ui.put('permissions', l_permissions);
-        end if;
-
-        if r.domain is not null then
-            l_meta_ui.put('domain', r.domain);
-        end if;
-
-        if r.prefers_border is not null then
-            l_meta_ui.put('prefersBorder', case r.prefers_border when 1 then true else false end);
-        end if;
-
-        -- -----------------------------------------------------
-        -- 4. Build resource item
-        -- -----------------------------------------------------
         l_resource_item.put('uri',  r.uri);
         l_resource_item.put('name', r.name);
-
         if r.description is not null then
             l_resource_item.put('description', r.description);
         end if;
-
         l_resource_item.put('mimeType', r.mime_type);
-
+        /*
+         * _meta.ui
+         */
+        l_meta          := json_object_t();
+        l_meta_ui       := oj_mcp_app_utils.generate_meta_ui(
+            p_resource_id    => r.id
+            ,p_domain         => r.domain
+            ,p_prefers_border => r.prefers_border
+        );
         if l_meta_ui.get_keys().count > 0 then
             l_meta.put('ui', l_meta_ui);
             l_resource_item.put('_meta', l_meta);
         end if;
-
         l_resources.append(l_resource_item);
-
     end loop;
 
-    -- -------------------------------------------------------
-    -- 5. Return an array of resource item.
-    -- -------------------------------------------------------
+    /*
+     * Return an array of resource item.
+     */
     logger.log_info('resources: ' || l_resources.to_clob(), l_scope);
     return l_resources;
 
@@ -591,31 +534,17 @@ is
     l_prefers_border oj_mcp_ui_resources.prefers_border%type;
     l_domain         oj_mcp_ui_resources.domain%type;
 
-    -- CSP domains
-    l_connect_domains   json_array_t := json_array_t();
-    l_resource_domains  json_array_t := json_array_t();
-    l_frame_domains     json_array_t := json_array_t();
-    l_base_uri_domains  json_array_t := json_array_t();
-
-    -- permissions
-    l_perm_camera          number(1);
-    l_perm_microphone      number(1);
-    l_perm_geolocation     number(1);
-    l_perm_clipboard_write number(1);
-
     -- JSON builders
     l_contents     json_array_t  := json_array_t();
     l_content_item json_object_t := json_object_t();
     l_meta         json_object_t := json_object_t();
-    l_meta_ui      json_object_t := json_object_t();
-    l_csp          json_object_t := json_object_t();
-    l_permissions  json_object_t := json_object_t();
-
+    l_meta_ui      json_object_t;
 begin
     logger.log_info('uri: ' || p_uri, l_scope);
-    -- -------------------------------------------------------
-    -- 1. Fetch main resource
-    -- -------------------------------------------------------
+
+    /*
+     * Fetch main resource
+     */
     begin
         select id, uri, name, description, mime_type, text, prefers_border, domain
             into l_resource_id, l_uri, l_name, l_description, l_mime_type, l_text,
@@ -627,83 +556,19 @@ begin
             return l_contents;
     end;
 
-    -- -------------------------------------------------------
-    -- 2. Collect CSP domains
-    -- -------------------------------------------------------
-    for rec in (
-        select domain_type, domain
-          from oj_mcp_ui_csp_domains
-         where resource_id = l_resource_id
-         order by domain_type, id
-    ) loop
-        case rec.domain_type
-            when 'CONNECT'  then l_connect_domains.append(rec.domain);
-            when 'RESOURCE' then l_resource_domains.append(rec.domain);
-            when 'FRAME'    then l_frame_domains.append(rec.domain);
-            when 'BASE_URI' then l_base_uri_domains.append(rec.domain);
-            else null;
-        end case;
-    end loop;
-
-    -- -------------------------------------------------------
-    -- 3. Fetch permissions
-    -- -------------------------------------------------------
-    begin
-        select perm_camera, perm_microphone, perm_geolocation, perm_clipboard_write
-          into l_perm_camera, l_perm_microphone, l_perm_geolocation, l_perm_clipboard_write
-          from oj_mcp_ui_permissions
-         where resource_id = l_resource_id;
-    exception
-        when no_data_found then
-            l_perm_camera          := 0;
-            l_perm_microphone      := 0;
-            l_perm_geolocation     := 0;
-            l_perm_clipboard_write := 0;
-    end;
-
-    -- -------------------------------------------------------
-    -- 4. Build CSP object (only when values exist)
-    -- -------------------------------------------------------
-    if l_connect_domains.get_size()  > 0 then l_csp.put('connectDomains',  l_connect_domains);  end if;
-    if l_resource_domains.get_size() > 0 then l_csp.put('resourceDomains', l_resource_domains); end if;
-    if l_frame_domains.get_size()    > 0 then l_csp.put('frameDomains',    l_frame_domains);    end if;
-    if l_base_uri_domains.get_size() > 0 then l_csp.put('baseUriDomains',  l_base_uri_domains); end if;
-
-    -- -------------------------------------------------------
-    -- 5. Build permissions object (only requested ones)
-    -- -------------------------------------------------------
-    if l_perm_camera          = 1 then l_permissions.put('camera',         json_object_t('{}')); end if;
-    if l_perm_microphone      = 1 then l_permissions.put('microphone',     json_object_t('{}')); end if;
-    if l_perm_geolocation     = 1 then l_permissions.put('geolocation',    json_object_t('{}')); end if;
-    if l_perm_clipboard_write = 1 then l_permissions.put('clipboardWrite', json_object_t('{}')); end if;
-
-    -- -------------------------------------------------------
-    -- 6. Build _meta.ui object
-    -- -------------------------------------------------------
-    if l_csp.get_keys().count > 0 then
-        l_meta_ui.put('csp', l_csp);
-    end if;
-
-    if l_permissions.get_keys().count > 0 then
-        l_meta_ui.put('permissions', l_permissions);
-    end if;
-
-    if l_domain is not null then
-        l_meta_ui.put('domain', l_domain);
-    end if;
-
-    if l_prefers_border is not null then
-        l_meta_ui.put('prefersBorder', case l_prefers_border when 1 then true else false end);
-    end if;
-
-    -- -------------------------------------------------------
-    -- 7. Build contents[0] item
-    --    Content element of resources/read response
-    -- -------------------------------------------------------
+    /*
+     * Build contents[0] item
+     *   Content element of resources/read response
+     */
     l_content_item.put('uri',      l_uri);
     l_content_item.put('mimeType', l_mime_type);
 
     -- Attach _meta only when ui key has values
+    l_meta_ui       := oj_mcp_app_utils.generate_meta_ui(
+        p_resource_id     => l_resource_id
+        ,p_domain         => l_domain
+        ,p_prefers_border => l_prefers_border
+    );
     if l_meta_ui.get_keys().count > 0 then
         l_meta.put('ui', l_meta_ui);
         l_content_item.put('_meta', l_meta);
@@ -711,7 +576,6 @@ begin
 
     -- text field
     l_content_item.put('text', l_text);
-
     l_contents.append(l_content_item);
 
     -- text is too big to log.

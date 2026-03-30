@@ -19,5 +19,15 @@ procedure update_app_text_from_apex_page(
     p_page_url              in varchar2
 );
 
+/**
+ * Generate _meta.ui object for the resource.
+ */
+function generate_meta_ui(
+    p_resource_id    in oj_mcp_ui_resources.id%type,
+    p_domain         in oj_mcp_ui_resources.domain%type,
+    p_prefers_border in oj_mcp_ui_resources.prefers_border%type
+)
+return json_object_t;
+
 end oj_mcp_app_utils;
 /

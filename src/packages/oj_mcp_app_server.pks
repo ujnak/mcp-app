@@ -39,7 +39,7 @@ procedure ords_handler(
     ,p_response     out blob
     ,p_session_id   out varchar2
     ,p_status_code  out number
-    ,p_enable_ras   in boolean default false
+    ,p_ras_config_pkg in varchar2 default null
 );
 
 end oj_mcp_app_server;

@@ -57,5 +57,93 @@ begin
     ;
 end update_app_text_from_apex_page;
 
+/**
+ * Generate _meta.ui object for the resource.
+ */
+function generate_meta_ui(
+    p_resource_id    in oj_mcp_ui_resources.id%type,
+    p_domain         in oj_mcp_ui_resources.domain%type,
+    p_prefers_border in oj_mcp_ui_resources.prefers_border%type
+)
+return json_object_t
+as
+    -- CSP domains
+    l_connect_domains   json_array_t := json_array_t();
+    l_resource_domains  json_array_t := json_array_t();
+    l_frame_domains     json_array_t := json_array_t();
+    l_base_uri_domains  json_array_t := json_array_t();
+
+    -- permissions
+    l_perm_camera          number(1);
+    l_perm_microphone      number(1);
+    l_perm_geolocation     number(1);
+    l_perm_clipboard_write number(1);
+
+    -- JSON builders
+    l_meta_ui      json_object_t := json_object_t();
+    l_csp          json_object_t := json_object_t();
+    l_permissions  json_object_t := json_object_t();
+begin
+    -- -----------------------------------------------------
+    -- 1. Collect CSP domains
+    -- -----------------------------------------------------
+    for c in (
+        select domain_type, domain
+        from oj_mcp_ui_csp_domains
+        where resource_id = p_resource_id
+        order by domain_type, id
+    )
+    loop
+        case c.domain_type
+            when 'CONNECT'  then l_connect_domains.append(c.domain);
+            when 'RESOURCE' then l_resource_domains.append(c.domain);
+            when 'FRAME'    then l_frame_domains.append(c.domain);
+            when 'BASE_URI' then l_base_uri_domains.append(c.domain);
+            else null;
+        end case;
+    end loop;
+
+    if l_connect_domains.get_size()  > 0 then l_csp.put('connectDomains',  l_connect_domains);  end if;
+    if l_resource_domains.get_size() > 0 then l_csp.put('resourceDomains', l_resource_domains); end if;
+    if l_frame_domains.get_size()    > 0 then l_csp.put('frameDomains',    l_frame_domains);    end if;
+    if l_base_uri_domains.get_size() > 0 then l_csp.put('baseUriDomains',  l_base_uri_domains); end if;
+
+    -- -----------------------------------------------------
+    -- 2. Collect permissions
+    -- -----------------------------------------------------
+    for p in (
+        select perm_camera, perm_microphone, perm_geolocation, perm_clipboard_write
+        from oj_mcp_ui_permissions
+        where resource_id = p_resource_id
+    )
+    loop
+        if p.perm_camera          = 1 then l_permissions.put('camera',         json_object_t('{}')); end if;
+        if p.perm_microphone      = 1 then l_permissions.put('microphone',     json_object_t('{}')); end if;
+        if p.perm_geolocation     = 1 then l_permissions.put('geolocation',    json_object_t('{}')); end if;
+        if p.perm_clipboard_write = 1 then l_permissions.put('clipboardWrite', json_object_t('{}')); end if;
+    end loop;
+
+    -- -----------------------------------------------------
+    -- 3. Build _meta.ui object
+    -- -----------------------------------------------------
+    if l_csp.get_keys().count > 0 then
+        l_meta_ui.put('csp', l_csp);
+    end if;
+
+    if l_permissions.get_keys().count > 0 then
+        l_meta_ui.put('permissions', l_permissions);
+    end if;
+
+    if p_domain is not null then
+        l_meta_ui.put('domain', p_domain);
+    end if;
+
+    if p_prefers_border is not null then
+        l_meta_ui.put('prefersBorder', case p_prefers_border when 1 then true else false end);
+    end if;
+
+    return l_meta_ui;
+end generate_meta_ui;
+
 end oj_mcp_app_utils;
 /

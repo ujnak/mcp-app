@@ -8,6 +8,9 @@ authid current_user
 as
     l_scope logger_logs.scope%type := 'oj_mcp_ras_post_handler';
 
+    -- implements get_dynamic_roles and prepare_namespace
+    C_RAS_CONFIG_PKG constant varchar2(128) := 'OJ_MCP_RAS_CONFIG';
+
     l_response    blob;
     l_session_id  varchar2(128);
     l_status_code number;
@@ -23,7 +26,7 @@ begin
         ,p_response    => l_response
         ,p_session_id  => l_session_id
         ,p_status_code => l_status_code
-        ,p_enable_ras  => true
+        ,p_ras_config_pkg  => C_RAS_CONFIG_PKG
     );
     /*
      * Return the response to the caller.
