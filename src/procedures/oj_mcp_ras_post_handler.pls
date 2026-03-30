@@ -10,7 +10,7 @@ as
 
     /*
      * Package specified for p_ras_config_pkg should implement
-     * function get_dynamic_roles and procedure prepare_namespace.
+     * function get_dynamic_roles and prepare_namespace.
      */
     C_RAS_CONFIG_PKG constant varchar2(128) := 'OJ_MCP_RAS_CONFIG';
 

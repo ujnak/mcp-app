@@ -9,7 +9,7 @@ as
     l_result   clob;
 begin
     select sys_context('APEX$SESSION','APP_USER') into l_username from dual;
-    if l_username = null then
+    if l_username is null then
         l_result := '{ "result": "no username found. MCP server is not protected." }';
     else
         l_result := apex_string.format('{ "username": "%s" }', l_username);

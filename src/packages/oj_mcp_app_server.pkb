@@ -277,7 +277,7 @@ as
         l_scope logger_logs.scope%type := gc_scope_prefix || 'resources_read';
 
         l_params json_object_t;
-        l_uri varchar2(128);
+        l_uri varchar2(1000);
         l_result_json  json_object_t;
         l_contents_arr json_array_t;
         l_error_json   json_object_t;
