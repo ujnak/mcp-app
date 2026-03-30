@@ -7,16 +7,20 @@ as
  */
  
 /**
- * Return the dynamic roles assigned to the session.
+ * Return the dynamic roles to be assigned to the ras session.
+ * 
+ * "MCPRUNTIME" should be included as a dynamic role because
+ * MCPRUNTIME is created as a role required for the MCP server to execute.
  */
 function get_dynamic_roles
 return sys.xs$name_list;
 
 /**
- * Prepare the application context HREMP by querying the mapping table AUTH_USERS 
- * using the authenticated user :current_user, 
- * and set the corresponding employee_id and department_id.
- */
+ * Prepare namespaces which will be provided to 
+ * sys.dbms_xs_sessions.create_session.
+ * 
+ * p_username corresponds to the value obtained as :current_user within the ORDS handler.
+ */ 
 function prepare_namespace(
     p_username  in varchar2
 )

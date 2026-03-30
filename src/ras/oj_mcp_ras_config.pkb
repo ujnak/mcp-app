@@ -1,9 +1,7 @@
 create or replace package body oj_mcp_ras_config
 as
 /*
- * Configurations related to RAS are consolidated into this package.
- * When configuring different RAS policies or related settings,
- * this package should be updated accordingly.
+ * RAS configuration sample to protect HR schema that is included in db-sample-schema-23.3
  */
  
 gc_scope_prefix constant varchar2(31 char) := lower($$plsql_unit) || '.';
@@ -22,7 +20,9 @@ begin
 end get_dynamic_roles;
 
 /**
- * Prepare namespaces.
+ * Prepare the application context HREMP by querying the mapping table AUTH_USERS 
+ * using the authenticated user :current_user, 
+ * and set the corresponding employee_id and department_id.
  */
 function prepare_namespace(
     p_username  in varchar2

@@ -332,10 +332,7 @@ begin
             l_ras_session_id := null;
             begin
                 /* 
-                 * TODO:
-                 * Searching DBA_XS_SESSIONS to extract the sessionid from the cookie 
-                 * requires privileges that are excessively broad. We should consider an alternative approach,
-                 * such as implementing a dedicated function to retrieve the sessionid from the cookie.
+                 * See comment on DBA_XS_SESSIONS in package OJ_MCP_RAS_CTX.
                  */
                 select sessionid into l_ras_session_id from dba_xs_sessions
                 where cookie = oj_mcp_ras_ctx.get_cookie_name(p_current_user, p_mcp_session_id);

@@ -8,7 +8,10 @@ authid current_user
 as
     l_scope logger_logs.scope%type := 'oj_mcp_ras_post_handler';
 
-    -- implements get_dynamic_roles and prepare_namespace
+    /*
+     * Package specified for p_ras_config_pkg should implement
+     * function get_dynamic_roles and procedure prepare_namespace.
+     */
     C_RAS_CONFIG_PKG constant varchar2(128) := 'OJ_MCP_RAS_CONFIG';
 
     l_response    blob;
