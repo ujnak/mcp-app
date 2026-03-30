@@ -9,22 +9,6 @@ as
     g_ras_config_pkg varchar2(128)    := null;
     g_current_user   varchar2(128)    := null;
     g_mcp_session_id varchar2(128)    := null;
-    /*
-     * The variables g_dynamic_roles is initialized within oj_mcp_ras_post_handler,
-     * which serves as the caller of ords_handler.
-     */
-    g_dynamic_roles  sys.xs$name_list := null;
-
-    /*
-     * Setters.
-     */
-    procedure set_dynamic_roles(
-        value in sys.xs$name_list
-    )
-    as
-    begin
-        g_dynamic_roles := value;
-    end set_dynamic_roles;
 
     /*
      * MCP handler implementation.
@@ -594,7 +578,7 @@ as
             if p_ras_config_pkg is not null then
                 logger.log_info('Creating RAS session...', l_scope);
                 execute immediate
-                    'begin :1 := ' || p_ras_config_pkg || '.PREPARE_NAMESPACE(:2); end;'
+                    'begin :1 := ' || dbms_assert.sql_object_name(p_ras_config_pkg) || '.PREPARE_NAMESPACE(:2); end;'
                     using out l_nsattrlist, p_username;
                 for i in 1..l_nsattrlist.count
                 loop

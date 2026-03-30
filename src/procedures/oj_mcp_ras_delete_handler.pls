@@ -24,7 +24,11 @@ begin
         );
     exception
         when others then
-            logger.log_info('Failed to destroy RAS Session.' || sqlerrm, l_scope);
+            logger.log_error('Failed to destroy RAS Session.' || sqlerrm, l_scope);
+            /* 
+             * Failures in session destroy can be safely ignored.
+             */
+            -- raise;
     end;
 
     p_status_code := 204;

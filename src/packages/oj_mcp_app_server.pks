@@ -14,13 +14,6 @@ C_METHOD_NOT_FOUND constant number := -32601;
 C_INVALID_PARAMS   constant number := -32602;
 C_INTERNAL_ERROR   constant number := -32603;
 
-/*
- * Setters.
- */
-procedure set_dynamic_roles(
-    value in sys.xs$name_list
-);
-
 /**
  * Execute it as the POST handler for the ORDS REST API template named "mcp",
  *

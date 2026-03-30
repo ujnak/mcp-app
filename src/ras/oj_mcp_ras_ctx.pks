@@ -3,6 +3,15 @@ create or replace package oj_mcp_ras_ctx
 as
 
 /**
+ * Get cookie name from username and session id.
+ */
+function get_cookie_name(
+    p_username       in varchar2,
+    p_mcp_session_id in varchar2
+)
+return varchar2;
+
+/**
  * Create an RAS session.
  */
 procedure create_session(

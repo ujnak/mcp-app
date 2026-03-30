@@ -324,14 +324,21 @@ begin
             /*
              * Get dynamic Roles
              */
-            execute immediate 'begin :1 := ' || p_ras_config_pkg || '.GET_DYNAMIC_ROLES; end;'
+            execute immediate 'begin :1 := ' || dbms_assert.sql_object_name(p_ras_config_pkg) || '.GET_DYNAMIC_ROLES; end;'
                 using out l_dynamic_roles;
-                                    /*
-             * Real Applicaiton Security Support.
+            /*
+             * Real Application Security Support.
              */
             l_ras_session_id := null;
             begin
-                select sessionid into l_ras_session_id from dba_xs_sessions where cookie = p_current_user || '-' || p_mcp_session_id;
+                /* 
+                 * TODO:
+                 * Searching DBA_XS_SESSIONS to extract the sessionid from the cookie 
+                 * requires privileges that are excessively broad. We should consider an alternative approach,
+                 * such as implementing a dedicated function to retrieve the sessionid from the cookie.
+                 */
+                select sessionid into l_ras_session_id from dba_xs_sessions
+                where cookie = oj_mcp_ras_ctx.get_cookie_name(p_current_user, p_mcp_session_id);
             exception
                 when no_data_found then
                     l_out := 'No RAS session found for MCP Session, The session must be re-established.';
@@ -372,6 +379,10 @@ begin
                     when others then
                         logger.log_info(sqlerrm, l_scope);
                 end;
+                /*
+                 * For the time being, even if detaching the RAS session fails,
+                 * communication with the client should continue.
+                 */
                 -- raise;
         end;
     else
