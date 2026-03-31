@@ -8,10 +8,12 @@
 #
 #set -e
 
+#
 # Update all installed packages to their latest versions.
 #
 sudo apt update -qq && sudo apt full-upgrade -y -qq && sudo apt autoremove -y -qq
 
+#
 # The universe repository is required solely to install nginx dynamic module libnginx-mod-http-headers-more-filter. 
 # Specifically, it is only necessary when configuring a reverse proxy for MCP.
 #
@@ -19,16 +21,41 @@ sudo apt install -y -qq software-properties-common
 sudo add-apt-repository -y universe
 sudo apt update -qq
 
+#
 # install packages to run nginx reverse proxy.
 # 
-sudo apt install -y -qq ufw vim unzip \
-    certbot \
-    nginx libnginx-mod-http-headers-more-filter
+sudo apt install -y -qq ufw vim certbot
 
-# Stop and disable nginx
-sudo systemctl stop nginx
-sudo systemctl disable nginx
 
+# Create user nginx and group nginx to run OpenRestry.
+#
+id nginx
+if [ $? -ne 0 ]; then
+    sudo groupadd --system --gid 101 nginx
+    sudo useradd  --system --uid 101 --gid nginx --no-create-home --shell /sbin/nologin nginx
+fi
+mkdir -p /var/log/nginx
+mkdir -p /etc/nginx/conf.d
+mkdir -p /etc/nginx/default.d
+mkdir -p /usr/share/nginx/html
+
+#
+# Copy configuration files for OpenResty from GitHub
+#
+sudo curl -o /usr/local/openresty/nginx/conf/nginx.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/openresty-nginx.conf
+sudo curl -o /etc/nginx/conf.d/01-server.conf \
+ https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/01-server.conf
+sudo curl -o /etc/nginx/default.d/10-root.conf \
+ https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/10-root.conf
+sudo curl -o /etc/nginx/default.d/50-ords.conf \
+ https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/50-ords.conf
+sudo curl -o /etc/nginx/default.d/60-apex-static-files.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/60-apex-static-files.conf
+sudo curl -o /etc/nginx/default.d/90-error.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/90-error.conf
+
+#
 # Install OpenResty on Ubuntu 24.04
 # https://openresty.org/en/linux-packages.html#ubuntu
 # Ubuntu 22 or later
@@ -42,32 +69,8 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openr
 sudo apt-get update
 sudo apt-get -y install openresty
 # sudo apt-get -y install --no-install-recommends openresty
-# create openresty.service
-cat <<EOF > openresty.service
-[Unit]
-Description=The OpenResty Application Platform
-After=syslog.target network-online.target remote-fs.target nss-lookup.target
-Wants=network-online.target
 
-[Service]
-Type=forking
-PIDFile=/run/openresty.pid
-ExecStartPre=/usr/local/openresty/nginx/sbin/nginx -t -c /etc/nginx/openresty-nginx.conf
-ExecStart=/usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/openresty-nginx.conf
-ExecStartPost=/bin/sleep 1
-ExecReload=/bin/kill -s HUP \$MAINPID
-ExecStop=/bin/kill -s QUIT \$MAINPID
-RuntimeDirectory=openresty
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-# Install OpenResty service.
-sudo mv openresty.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl status openresty
-
+#
 # Configure network filter.
 #
 sudo ufw allow 22/tcp
@@ -76,8 +79,11 @@ sudo ufw allow 443/tcp
 sudo ufw --force enable
 sudo ufw reload
 
-#########################################################################
-# remove if APEX will not be installed.
+#
+# exit if no APEX is required.
+#
+#exit;
+
 # 
 # Install Docker
 #
