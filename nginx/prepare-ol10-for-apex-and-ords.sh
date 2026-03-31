@@ -3,6 +3,7 @@
 # Prepare Oracle Linux 10 to run Oracle Database Free and ORDS containers.
 #
 # HISTORY
+# 2026/03/31 ynakakos install OpenResty for reverse proxy.
 # 2026/02/25 ynakakos rename the script to reflect its functionality.
 # 2026/02/20 ynakakos created.
 #
@@ -33,8 +34,53 @@ sudo dnf config-manager --enable ol10_u1_developer_EPEL
 # firewalld: port forwarding.
 #
 sudo dnf -y -q install container-tools unzip \
-    nginx certbot nginx-mod-headers-more \
-    firewalld
+    certbot \
+    firewalld \
+    nginx nginx-mod-headers-more
+# disable nginx because OpenResty is used.
+sudo systemctl stop nginx
+sudo systemctl disable nginx
+sudo systemctl status nginx
+
+# Install OpenResty on Oracle Linux 10
+# https://openresty.org/en/linux-packages.html#rhel
+# RHEL 9 or later
+curl -O https://openresty.org/package/rhel/openresty2.repo
+# OpenResty does not provide the repositry for OL10 at this moment.
+# use 9 instead.
+sed -e 's/$releasever/9/' openresty2.repo > openresty.repo
+rm -f openresty2.repo
+# RHEL 8 or older
+#curl -O https://openresty.org/package/rhel/openresty.repo
+sudo mv openresty.repo /etc/yum.repos.d/openresty.repo
+sudo dnf check-update
+sudo dnf -y install openresty
+# create openresty.service
+cat <<EOF > openresty.service
+[Unit]
+Description=The OpenResty Application Platform
+After=syslog.target network-online.target remote-fs.target nss-lookup.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/run/openresty.pid
+ExecStartPre=/usr/local/openresty/nginx/sbin/nginx -t -c /etc/nginx/openresty-nginx.conf
+ExecStart=/usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/openresty-nginx.conf
+ExecStartPost=/bin/sleep 1
+ExecReload=/bin/kill -s HUP \$MAINPID
+ExecStop=/bin/kill -s QUIT \$MAINPID
+RuntimeDirectory=openresty
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+# Install OpenResty service.
+sudo mv openresty.service /etc/systemd/system/
+sudo restorecon -v /etc/systemd/system/openresty.service
+sudo systemctl daemon-reload
+sudo systemctl status openresty
 
 # Configure firewalld
 #
