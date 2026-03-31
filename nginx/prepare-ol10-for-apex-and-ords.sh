@@ -43,10 +43,10 @@ if [ $? -ne 0 ]; then
     sudo groupadd --system --gid 101 nginx
     sudo useradd  --system --uid 101 --gid nginx --no-create-home --shell /sbin/nologin nginx
 fi
-mkdir -p /var/log/nginx
-mkdir -p /etc/nginx/conf.d
-mkdir -p /etc/nginx/default.d
-mkdir -p /usr/share/nginx/html
+sudo mkdir -p /var/log/nginx
+sudo mkdir -p /etc/nginx/conf.d
+sudo mkdir -p /etc/nginx/default.d
+sudo mkdir -p /usr/share/nginx/html
 
 #
 # Copy configuration files for OpenResty from GitHub
