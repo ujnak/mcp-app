@@ -10,26 +10,23 @@
 #
 # Update all installed packages to their latest versions.
 #
+# Do full-upgrade to ensure installed packages as minimal.
 sudo apt update -qq && sudo apt full-upgrade -y -qq && sudo apt autoremove -y -qq
 
 #
-# The universe repository is required solely to install nginx dynamic module libnginx-mod-http-headers-more-filter. 
-# Specifically, it is only necessary when configuring a reverse proxy for MCP.
-#
-sudo apt install -y -qq software-properties-common
-sudo add-apt-repository -y universe
-sudo apt update -qq
-
-#
-# install packages to run nginx reverse proxy.
-# 
+# Install certbot for TLS certificate issuance.
+# After this script completes, run manually:
+#   sudo systemctl stop openresty
+#   sudo certbot --standalone -d your.domain.example.com
 sudo apt install -y -qq ufw vim certbot
 
-
+#
 # Create user nginx and group nginx to run OpenRestry.
 #
-id nginx
+id nginx > /dev/null 2>&1
 if [ $? -ne 0 ]; then
+    # Although this setup does not use the Alpine-based NGINX container,
+    # it aligns the UID and GID as closely as possible with those used by the container.
     sudo groupadd --system --gid 101 nginx
     sudo useradd  --system --uid 101 --gid nginx --no-create-home --shell /sbin/nologin nginx
 fi
@@ -37,23 +34,6 @@ sudo mkdir -p /var/log/nginx
 sudo mkdir -p /etc/nginx/conf.d
 sudo mkdir -p /etc/nginx/default.d
 sudo mkdir -p /usr/share/nginx/html
-sudo cp /usr/local/openresty/nginx/html/* /usr/share/nginx/html/
-
-#
-# Copy configuration files for OpenResty from GitHub
-#
-sudo curl -o /usr/local/openresty/nginx/conf/nginx.conf \
-  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/openresty-nginx.conf
-sudo curl -o /etc/nginx/conf.d/01-server.conf \
- https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/01-server.conf
-sudo curl -o /etc/nginx/default.d/10-root.conf \
- https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/10-root.conf
-sudo curl -o /etc/nginx/default.d/50-ords.conf \
- https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/50-ords.conf
-sudo curl -o /etc/nginx/default.d/60-apex-static-files.conf \
-  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/60-apex-static-files.conf
-sudo curl -o /etc/nginx/default.d/90-error.conf \
-  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/90-error.conf
 
 #
 # Install OpenResty on Ubuntu 24.04
@@ -70,6 +50,33 @@ sudo apt-get update
 sudo apt-get -y install openresty
 # sudo apt-get -y install --no-install-recommends openresty
 
+# setup document root.
+sudo cp /usr/local/openresty/nginx/html/* /usr/share/nginx/html/
+
+#
+# Copy configuration files for OpenResty from GitHub
+#
+sudo curl --fail -o /usr/local/openresty/nginx/conf/nginx.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/openresty-nginx.conf
+sudo curl --fail -o /etc/nginx/conf.d/01-server.conf \
+ https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/01-server.conf
+sudo curl --fail -o /etc/nginx/default.d/10-root.conf \
+ https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/10-root.conf
+sudo curl --fail -o /etc/nginx/default.d/90-error.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/90-error.conf
+# MCP
+#sudo curl --fail -o /etc/nginx/default.d/30-mcp.conf \
+#  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/30-mcp.conf
+#sudo curl --fail -o /etc/nginx/default.d/30-mcp-adb.conf \
+# https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/30-mcp-adb.conf
+#sudo curl --fail -o /etc/nginx/default.d/40-www-auth.conf \
+# https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/40-www-auth.conf
+# APEX (Do not use with Autonomous Database)
+sudo curl --fail -o /etc/nginx/default.d/50-ords.conf \
+ https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/50-ords.conf
+sudo curl --fail -o /etc/nginx/default.d/60-apex-static-files.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/60-apex-static-files.conf
+
 #
 # Configure network filter.
 #
@@ -81,8 +88,9 @@ sudo ufw reload
 
 #
 # exit if no APEX is required.
-#
-#exit;
+# default: true
+INSTALL_APEX=${INSTALL_APEX:-true}
+[ "$INSTALL_APEX" = "false" ] && exit 0
 
 # 
 # Install Docker
@@ -99,8 +107,13 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 
 # Create the user and group to run Oracle Database and ORDS.
 #
-sudo groupadd -g 54321 oinstall
-sudo useradd -u 54321 -g 54321 -m oracle
+id oracle > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    # UID of oracle user in the Oracle container is 54321,
+    # and GID of oinstall group is 54321.
+    sudo groupadd -g 54321 oinstall
+    sudo useradd -u 54321 -g 54321 -m oracle
+fi
 sudo loginctl enable-linger 54321
 sudo usermod -aG docker oracle
 
