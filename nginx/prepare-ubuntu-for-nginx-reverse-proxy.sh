@@ -6,7 +6,6 @@
 # 2026/03/31 ynakakos install OpenResty for reverse proxy.
 # 2026/03/02 ynakakos created.
 #
-#set -e
 
 #
 # Update all installed packages to their latest versions.
