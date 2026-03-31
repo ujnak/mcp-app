@@ -37,6 +37,7 @@ sudo mkdir -p /var/log/nginx
 sudo mkdir -p /etc/nginx/conf.d
 sudo mkdir -p /etc/nginx/default.d
 sudo mkdir -p /usr/share/nginx/html
+sudo cp /usr/local/openresty/nginx/html/* /usr/share/nginx/html/
 
 #
 # Copy configuration files for OpenResty from GitHub
