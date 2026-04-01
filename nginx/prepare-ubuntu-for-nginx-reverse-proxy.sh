@@ -18,7 +18,7 @@ if [ "${IS_ADB}" = "false" ]; then
     INSTALL_APEX=${INSTALL_APEX:-true}
 else
     # Container is not required when backend is ADB.
-    INSTALL_APEX=false;
+    INSTALL_APEX=false
 fi
 echo 'IS_ADB = ' ${IS_ADB}
 echo 'INSTALL_APEX = ' ${INSTALL_APEX}

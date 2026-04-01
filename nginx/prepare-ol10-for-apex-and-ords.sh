@@ -19,7 +19,7 @@ if [ "${IS_ADB}" = "false" ]; then
     INSTALL_APEX=${INSTALL_APEX:-true}
 else
     # Container is not required when backend is ADB.
-    INSTALL_APEX=false;
+    INSTALL_APEX=false
 fi
 # IS_ORACLE_LINUX: true if Oracle Linux.
 IS_ORACLE_LINUX=${IS_ORACLE_LINUX:-true}
