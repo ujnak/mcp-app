@@ -3,9 +3,25 @@
 # Configure the system to run nginx reverse proxy on Ubuntu 24.04.
 #
 # HISTORY
+# 2026/04/01 ynakakos Addition of a configuration option.
 # 2026/03/31 ynakakos install OpenResty for reverse proxy.
 # 2026/03/02 ynakakos created.
 #
+
+#
+# Configuration Options:
+#
+# IS_ADB: true if backend is Autonomous AI Database, default false.
+IS_ADB=${IS_ADB:-false}
+if [ "${IS_ADB}" = "false" ]; then
+    # INSTALL_APEX: Install Container environment to install APEX.
+    INSTALL_APEX=${INSTALL_APEX:-true}
+else
+    # Container is not required when backend is ADB.
+    INSTALL_APEX=false;
+fi
+echo 'IS_ADB = ' ${IS_ADB}
+echo 'INSTALL_APEX = ' ${INSTALL_APEX}
 
 #
 # Update all installed packages to their latest versions.
@@ -65,31 +81,42 @@ sudo curl --fail -o /etc/nginx/default.d/10-root.conf \
 sudo curl --fail -o /etc/nginx/default.d/90-error.conf \
   https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/90-error.conf
 # MCP
-#sudo curl --fail -o /etc/nginx/default.d/30-mcp.conf \
-#  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/30-mcp.conf
-#sudo curl --fail -o /etc/nginx/default.d/30-mcp-adb.conf \
-# https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/30-mcp-adb.conf
-#sudo curl --fail -o /etc/nginx/default.d/40-www-auth.conf \
-# https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/40-www-auth.conf
+if [ "${IS_ADB}" = "false" ]; then
+  sudo curl --fail -o /etc/nginx/default.d/30-mcp.conf \
+    https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/30-mcp.conf
+else
+  sudo curl --fail -o /etc/nginx/default.d/30-mcp-adb.conf \
+    https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/30-mcp-adb.conf
+fi
+sudo curl --fail -o /etc/nginx/default.d/40-www-auth.conf \
+  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/40-www-auth.conf
 # APEX (Do not use with Autonomous Database)
-sudo curl --fail -o /etc/nginx/default.d/50-ords.conf \
- https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/50-ords.conf
-sudo curl --fail -o /etc/nginx/default.d/60-apex-static-files.conf \
-  https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/60-apex-static-files.conf
+if [ "${IS_ADB}" = "false" ]; then
+    sudo curl --fail -o /etc/nginx/default.d/50-ords.conf \
+      https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/50-ords.conf
+    sudo curl --fail -o /etc/nginx/default.d/60-apex-static-files.conf \
+      https://raw.githubusercontent.com/ujnak/mcp-app/refs/heads/main/nginx/60-apex-static-files.conf
+fi
 
 #
 # Configure network filter.
 #
 sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
+sudo ufw allow 80/tcp  # http on OpenResty
+sudo ufw allow 443/tcp # https on OpenResty
+if [ "${INSTALL_APEX}" = "true" ];then
+    sudo ufw allow 8080/tcp  # http on ORDS
+    sudo ufw allow 8443/tcp  # https on ORDS
+    sudo ufw allow 27017/tcp # MongoDB on ORDS
+    sudo ufw allow 1521/tcp  # Oracle Net
+    sudo ufw allow 1522/tcp  # Oracle Net (tcps)
+fi
 sudo ufw --force enable
 sudo ufw reload
 
 #
 # exit if no APEX is required.
 # default: true
-INSTALL_APEX=${INSTALL_APEX:-true}
 [ "$INSTALL_APEX" = "false" ] && exit 0
 
 # 
@@ -111,7 +138,7 @@ id oracle > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     # UID of oracle user in the Oracle container is 54321,
     # and GID of oinstall group is 54321.
-    sudo groupadd -g 54321 oinstall
+    grep -q '^oinstall:' /etc/group || sudo groupadd -g 54321 oinstall
     sudo useradd -u 54321 -g 54321 -m oracle
 fi
 sudo loginctl enable-linger 54321
