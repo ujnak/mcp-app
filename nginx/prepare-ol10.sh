@@ -63,7 +63,7 @@ id nginx > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     # Although this setup does not use the Alpine-based NGINX container, 
     # it aligns the UID and GID as closely as possible with those used by the container.
-    sudo groupadd --system --gid 101 nginx
+    grep -q '^nginx:' /etc/group || sudo groupadd --system --gid 101 nginx
     sudo useradd  --system --uid 101 --gid nginx --no-create-home --shell /sbin/nologin nginx
 fi
 sudo mkdir -p /var/log/nginx
@@ -131,7 +131,7 @@ sudo systemctl start  firewalld
 #sudo firewall-cmd --add-service=ssh
 sudo firewall-cmd --add-service=http  # http on OpenResty
 sudo firewall-cmd --add-service=https # https on OpenResty
-if [ "${INSTALL_APEX}" = "true" ];then
+if [ "${INSTALL_APEX}" = "true" ]; then
     sudo firewall-cmd --add-port=8080/tcp   # http on ORDS
     sudo firewall-cmd --add-port=8443/tcp   # https on ORDS
     sudo firewall-cmd --add-port=27017/tcp  # MongoDB on ORDS
@@ -188,13 +188,12 @@ sudo sysctl --system
 # Install RPM packages required to run Oracle APEX and ORDS.
 # container-tools: podman to run DB and ORDS containers.
 # unzip: Used to extract apex-latest.zip.
-# nginx, certbot, nginx-mod-headers-more: configure the reverse proxy.
-# firewalld: port forwarding.
 #
 sudo dnf -y -q install container-tools unzip
 
-# Allow nginx to connect to ORDS.
-# 
+#
+# Allow OpenResty to connect to ORDS.
+#
 sudo setsebool -P httpd_can_network_connect 1
 
 # End of script.
