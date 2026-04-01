@@ -34,7 +34,7 @@ sudo apt update -qq && sudo apt full-upgrade -y -qq && sudo apt autoremove -y -q
 # After this script completes, run manually:
 #   sudo systemctl stop openresty
 #   sudo certbot --standalone -d your.domain.example.com
-sudo apt install -y -qq ufw vim certbot
+sudo apt install -y -qq ufw vim certbot unzip
 
 #
 # Create user nginx and group nginx to run OpenRestry.
@@ -43,8 +43,8 @@ id nginx > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     # Although this setup does not use the Alpine-based NGINX container,
     # it aligns the UID and GID as closely as possible with those used by the container.
-    grep -q '^nginx:' /etc/group || sudo groupadd --system --gid 101 nginx
-    sudo useradd  --system --uid 101 --gid nginx --no-create-home --shell /sbin/nologin nginx
+    grep -q '^nginx:' /etc/group || sudo groupadd --system nginx
+    sudo useradd  --system --gid nginx --no-create-home --shell /sbin/nologin nginx
 fi
 sudo mkdir -p /var/log/nginx
 sudo mkdir -p /etc/nginx/conf.d
@@ -57,11 +57,13 @@ sudo mkdir -p /usr/share/nginx/html
 # Ubuntu 22 or later
 sudo apt-get -y install --no-install-recommends wget gnupg ca-certificates lsb-release
 wget -O - https://openresty.org/package/pubkey.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/openresty.gpg
-# x86_64 or amd64
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openresty.gpg] http://openresty.org/package/ubuntu $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/openresty.list > /dev/null
-# arm64 or aarch64
-#echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openresty.gpg] http://openresty.org/package/arm64/ubuntu $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/openresty.list > /dev/null
-#
+if [ `arch` = 'x86_64' ]; then
+    # x86_64 or amd64
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openresty.gpg] http://openresty.org/package/ubuntu $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/openresty.list > /dev/null
+else
+    # arm64 or aarch64
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openresty.gpg] http://openresty.org/package/arm64/ubuntu $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/openresty.list > /dev/null
+fi
 sudo apt-get update
 sudo apt-get -y install openresty
 # sudo apt-get -y install --no-install-recommends openresty
@@ -123,10 +125,10 @@ sudo ufw reload
 # Install Docker
 #
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update

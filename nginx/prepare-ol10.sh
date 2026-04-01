@@ -61,10 +61,8 @@ sudo dnf -y -q install certbot firewalld
 #
 id nginx > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    # Although this setup does not use the Alpine-based NGINX container, 
-    # it aligns the UID and GID as closely as possible with those used by the container.
-    grep -q '^nginx:' /etc/group || sudo groupadd --system --gid 101 nginx
-    sudo useradd  --system --uid 101 --gid nginx --no-create-home --shell /sbin/nologin nginx
+    grep -q '^nginx:' /etc/group || sudo groupadd --system nginx
+    sudo useradd  --system --gid nginx --no-create-home --shell /sbin/nologin nginx
 fi
 sudo mkdir -p /var/log/nginx
 sudo mkdir -p /etc/nginx/conf.d
