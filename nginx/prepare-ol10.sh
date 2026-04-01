@@ -23,9 +23,11 @@ else
 fi
 # IS_ORACLE_LINUX: true if Oracle Linux.
 IS_ORACLE_LINUX=${IS_ORACLE_LINUX:-true}
+RHEL_RELEASE=`rpm -E %{rhel}`
 echo 'IS_ADB = ' ${IS_ADB}
 echo 'INSTALL_APEX = ' ${INSTALL_APEX}
 echo 'IS_ORACLE_LINUX = ' ${IS_ORACLE_LINUX}
+echo 'RedHat EL Release = ' ${RHEL_RELEASE}
 
 #
 # oci-growfs is available only in Oracle Linux images. 
@@ -44,10 +46,13 @@ sudo dnf -y -q update
 #
 # Enable the EPEL repository.
 #
-# for Oracle Linux 10 Update 1
-sudo dnf config-manager --enable ol10_u1_developer_EPEL
-# Other than Oracle Linux 10
-#sudo dnf -y -q install epel-release
+if [ ${RHEL_RELEASE} -eq 10 ]; then
+    # for Oracle Linux 10 Update 1
+    sudo dnf config-manager --enable ol10_u1_developer_EPEL
+else
+    # Other than Oracle Linux 10
+    sudo dnf -y -q install epel-release
+fi
 
 #
 # Install certbot for TLS certificate issuance.
@@ -74,13 +79,20 @@ sudo mkdir -p /usr/share/nginx/html
 # https://openresty.org/en/linux-packages.html#rhel
 #
 # RHEL 9 or later
-curl -O https://openresty.org/package/rhel/openresty2.repo
-# OpenResty does not provide the repositry for OL10 at this moment.
-# use 9 instead.
-sed -e 's/$releasever/9/' openresty2.repo > openresty.repo
-rm -f openresty2.repo
-# RHEL 8 or older
-#curl -O https://openresty.org/package/rhel/openresty.repo
+if [ ${RHEL_RELEASE} -ge 9 ]; then
+    curl -O https://openresty.org/package/rhel/openresty2.repo
+    # OpenResty does not provide the repositry for OL10 at this moment.
+    # use 9 instead.
+    if [ ${RHEL_RELEASE} -eq 10 ]; then
+        sed -e 's/$releasever/9/' openresty2.repo > openresty.repo
+        rm -f openresty2.repo
+    else
+        mv openresty2.repo openresty.repo
+    fi
+else
+    # RHEL 8 or older
+    curl -O https://openresty.org/package/rhel/openresty.repo
+fi
 sudo mv openresty.repo /etc/yum.repos.d/openresty.repo
 sudo dnf check-update
 sudo dnf -y install openresty
