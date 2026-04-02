@@ -61,9 +61,18 @@ Creates:
 
 Creates the following packages:
 
-- `OJ_MCP_APP_SERVER`
-- `OJ_MCP_APP_UTILS`
+- `OJ_MCP_RAS_CTX`
 - `OJ_MCP_JSONRPC_UTILS`
+- `OJ_MCP_APP_UTILS`
+- `OJ_MCP_APP_METHODS`
+- `OJ_MCP_APP_SERVER`
+
+procedures:
+
+- `OJ_MCP_POST_HANDLER`
+- `OJ_MCP_DELETE_HANDLER`
+- `OJ_MCP_RAS_POST_HANDLER`
+- `OJ_MCP_RAS_DELETE_HANDLER`
 
 ### install-sampleserver.sql
 
@@ -74,6 +83,8 @@ Creates the following packages:
   - `get_current_user`
 - UC_AI tool definitions for the PL/SQL functions
 - UI resources for tool `get_current_user`
+- Table `AUTH_USERS`
+- Package `OJ_MCP_RAS_CONFIG`
 
 ## Requirements for Running the Sample Server
 
@@ -97,8 +108,6 @@ All articles are written in Japanese.
 
 All scripts in this article are updated and are contained in this repository.
 
-- [UC_AIで定義したツールをリモートMCPサーバーのツールとして使用する](https://apexugj.blogspot.com/2026/03/use-uc-ai-tools-on-a-remote-mcp-server.html)
-
 - [MCPを話すOracle Databaseを作成する](https://apexugj.blogspot.com/2026/03/create-oracle-database-that-supports-mcp.html)
 
 - [MCP AppをOracle DatabaseとOracle REST Data Servicesで実装する](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
@@ -107,13 +116,17 @@ All scripts in this article are updated and are contained in this repository.
 
 - [MCP Appとして日報アプリを作成する](https://apexugj.blogspot.com/2026/03/simple-daily-report-mcp-app.html)
 
-### Support for OpenID Connect by nginx reverse proxy
+### Implementation of OpenResty(nginx) as a reverse proxy
 
 - [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Oracle Linux 10編](https://apexugj.blogspot.com/2026/02/configure-reverse-proxy-using-nginx-for-apex-and-ords.html)
 
 - [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Ubuntu 24.04編](https://apexugj.blogspot.com/2025/12/building-oracle-apex-on-ubuntu.html)
 
 - [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - 追加手順](https://apexugj.blogspot.com/2026/02/building-oracle-apex-appendix.html)
+
+- [Autonomous AI Database向けNGINXリバース・プロキシの作成](https://apexugj.blogspot.com/2026/03/remote-mcp-server-on-top-of-ords-with-autonomous-database-19c.html)
+
+### Implementation of OIDC authentication
 
 - [Role based JWT profileで保護したORDS REST APIにアクセスする - Microsoft Entra ID編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-chatgpt-and-claude-with-entraid.html)
 
@@ -122,5 +135,3 @@ All scripts in this article are updated and are contained in this repository.
 - [Role based JWT profileで保護したORDS REST APIにアクセスする - Auth0編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-auth0.html)
 
 - [Role based JWT profileで保護したORDS REST APIにアクセスする - Oracle IAM編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-oracle-iam.html)
-
-- [Autonomous AI Database向けNGINXリバース・プロキシの作成](https://apexugj.blogspot.com/2026/03/remote-mcp-server-on-top-of-ords-with-autonomous-database-19c.html)
