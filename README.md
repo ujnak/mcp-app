@@ -108,9 +108,9 @@ All articles are written in Japanese.
 
 All scripts in this article are updated and are contained in this repository.
 
-- [MCPを話すOracle Databaseを作成する](https://apexugj.blogspot.com/2026/03/create-oracle-database-that-supports-mcp.html)
+- [MCPを話すOracle Databaseを作成する - Autonomous AI Database編](https://apexugj.blogspot.com/2026/03/create-oracle-database-that-supports-mcp.html)
 
-- [MCP AppをOracle DatabaseとOracle REST Data Servicesで実装する](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
+- [MCPを話すOracle Databaseを作成する - ローカル・データベース編](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
 
 - [APEXアプリケーションのページ生成をMCP Appの簡易バンドラとして利用する](https://apexugj.blogspot.com/2026/03/generate-ui-resources-bundle-from-apex-page.html)
 
@@ -118,13 +118,13 @@ All scripts in this article are updated and are contained in this repository.
 
 ### Implementation of OpenResty(nginx) as a reverse proxy
 
-- [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Oracle Linux 10編](https://apexugj.blogspot.com/2026/02/configure-reverse-proxy-using-nginx-for-apex-and-ords.html)
+- [Oracle APEXの実行環境とリバース・プロキシを構成する - Oracle Linux 10編](https://apexugj.blogspot.com/2026/02/configure-reverse-proxy-using-nginx-for-apex-and-ords.html)
 
-- [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - Ubuntu 24.04編](https://apexugj.blogspot.com/2025/12/building-oracle-apex-on-ubuntu.html)
+- [Oracle APEXの実行環境とリバース・プロキシを構成する - Ubuntu 24.04編](https://apexugj.blogspot.com/2025/12/building-oracle-apex-on-ubuntu.html)
 
-- [Oracle APEXの実行環境にnginxによるリバース・プロキシを構成する - 追加手順](https://apexugj.blogspot.com/2026/02/building-oracle-apex-appendix.html)
+- [Oracle APEXの実行環境とリバース・プロキシを構成する - 追加手順](https://apexugj.blogspot.com/2026/02/building-oracle-apex-appendix.html)
 
-- [Autonomous AI Database向けNGINXリバース・プロキシの作成](https://apexugj.blogspot.com/2026/03/remote-mcp-server-on-top-of-ords-with-autonomous-database-19c.html)
+- [リバース・プロキシとして構成したnginxでWWW-Authenticateヘッダーを書き換える](https://apexugj.blogspot.com/2025/12/nginx-more-clear-headers-to-rewrite-www-authenticate.html)
 
 ### Implementation of OIDC authentication
 
