@@ -9,6 +9,8 @@
 
 @src/resources/get_current_user.sql
 @src/resources/update-ui-get-current-user.sql
+@src/resources/run_sql.sql
+@src/resources/update-ui-run-sql.sql
 
 @ras-setup/auth_users.sql
 @src/ras/oj_mcp_ras_config.pks

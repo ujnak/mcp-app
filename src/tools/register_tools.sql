@@ -16,7 +16,7 @@ begin
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'get_current_user',
     p_description => 'Get current sign-in username.',
-    p_function_call => 'return get_current_user;',
+    p_function_call => 'return #SESSION_USER#.get_current_user;',
     p_json_schema => l_schema,
     p_tags => apex_t_varchar2('nl2sql','sampleserver')
   );
@@ -84,7 +84,7 @@ begin
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'get_schema',
     p_description => 'return a list of tables and columns and its types that the schema contains .',
-    p_function_call => 'return get_schema(:parameters);',
+    p_function_call => 'return #SESSION_USER#.get_schema(:parameters);',
     p_json_schema => l_schema,
     p_tags => apex_t_varchar2('nl2sql','sampleserver')
   );
