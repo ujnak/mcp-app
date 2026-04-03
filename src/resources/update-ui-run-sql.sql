@@ -291,7 +291,7 @@ begin
 </body>
 </html>~';
     update oj_mcp_ui_resources set text = l_text where id = (
-        select resource_id from oj_mcp_uc_ai_tools where code = 'Run SQL'
+        select resource_id from oj_mcp_uc_ai_tools where code = 'run_sql'
     );
     commit;
 end;
