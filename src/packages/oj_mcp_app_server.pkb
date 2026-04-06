@@ -130,6 +130,15 @@ as
         select 'alter system cancel sql ''' || sid || ',' || serial# || '''' into l_cancel_sql
         from v$session where action = l_session_id || ':' || l_request_id
          and module = p_context and status = 'ACTIVE';
+        /*
+         * If function OJ_MCP_CANCEL_REQUEST is created in SYS schema.
+        l_message := sys.oj_mcp_cancel_request(
+            p_module_name => p_context,
+            p_session_id  => l_session_id,
+            p_request_id  => l_request_id
+        );
+        logger.log_info(l_message, l_scope);
+        */
         logger.log_info('Try to cancel: ' || l_cancel_sql, l_scope);
         execute immediate l_cancel_sql;
         /* status code 204 for notifications.  */
