@@ -118,6 +118,7 @@ as
         l_session_id varchar2(128);
         l_request_id varchar2(128);
         l_cancel_sql varchar2(256);
+        l_message    varchar2(4000);
     begin
         l_params_obj := json_object_t.parse(p_params);
         select  sys_context('APEX$SESSION','APP_SESSION') into l_session_id from dual;
@@ -132,15 +133,18 @@ as
          and module = p_context and status = 'ACTIVE';
         /*
          * If function OJ_MCP_CANCEL_REQUEST is created in SYS schema.
-        l_message := sys.oj_mcp_cancel_request(
-            p_module_name => p_context,
-            p_session_id  => l_session_id,
-            p_request_id  => l_request_id
-        );
-        logger.log_info(l_message, l_scope);
-        */
-        logger.log_info('Try to cancel: ' || l_cancel_sql, l_scope);
-        execute immediate l_cancel_sql;
+         */
+        $IF $$cancel_enabled $THEN
+            l_message := sys.oj_mcp_cancel_request(
+                p_module_name => p_context,
+                p_session_id  => l_session_id,
+                p_request_id  => l_request_id
+            );
+            logger.log_info(l_message, l_scope);
+        $ELSE
+            logger.log_info('Try to cancel: ' || l_cancel_sql, l_scope);
+            execute immediate l_cancel_sql;
+        $END
         /* status code 204 for notifications.  */
         p_status_code := 204;
         p_error := null;
