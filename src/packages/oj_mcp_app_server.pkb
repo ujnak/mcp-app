@@ -104,6 +104,47 @@ as
         p_result := null;
     end notifications_initialized;
 
+    procedure notifications_cancelled(
+        p_username     in varchar2
+        ,p_params      in clob
+        ,p_context     in varchar2
+        ,p_result      out clob
+        ,p_error       out clob
+        ,p_status_code out number
+    )
+    as
+        l_scope logger_logs.scope%type := gc_scope_prefix || 'notifications_cancelled';
+        l_params_obj json_object_t;
+        l_session_id varchar2(128);
+        l_request_id varchar2(128);
+        l_cancel_sql varchar2(256);
+    begin
+        l_params_obj := json_object_t.parse(p_params);
+        select  sys_context('APEX$SESSION','APP_SESSION') into l_session_id from dual;
+        l_request_id := l_params_obj.get_string('requestId');
+        /*
+         * Because ALTER SYSTEM can normally be executed only by users with DBA privileges,
+         * the cancellation operation will always fail. It is therefore necessary 
+         * to create a dedicated procedure specifically for canceling the process.
+         */
+        select 'alter system cancel sql ''' || sid || ',' || serial# || '''' into l_cancel_sql
+        from v$session where action = l_session_id || ':' || l_request_id
+         and module = p_context and status = 'ACTIVE';
+        logger.log_info('Try to cancel: ' || l_cancel_sql, l_scope);
+        execute immediate l_cancel_sql;
+        /* status code 204 for notifications.  */
+        p_status_code := 204;
+        p_error := null;
+        p_result := null;
+    exception
+        when others then
+            logger.log_error('Cancel Failed: ' || sqlerrm, l_scope);
+            /* status code 204 for notifications.  */
+            p_status_code := 204;
+            p_error  := null;
+            p_result := null;
+    end notifications_cancelled;
+
     procedure logging_setlevel(
         p_username     in varchar2
         ,p_params      in clob
@@ -622,6 +663,19 @@ as
         end if;
 
         /*
+         * Set MODULE and ACTION on the session to enable lookup of an in-progress
+         * session by the requestId contained in notifications/cancelled.
+         * Note: The uniqueness relationship between session_id and the JSON-RPC
+         * request ID requires further consideration.
+         */
+        begin
+            dbms_application_info.set_module(
+                module_name => l_ords_module_name,
+                action_name => p_session_id || ':' || l_id
+            );
+        end;
+
+        /*
          * Invoke the MCP method.
          */
         case l_method
@@ -629,6 +683,8 @@ as
                 initialize(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'notifications/initialized' then
                 notifications_initialized(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
+            when 'notifications/cancelled' then
+                notifications_cancelled(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'logging/setLevel' then
                 logging_setlevel(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'tools/list' then 
