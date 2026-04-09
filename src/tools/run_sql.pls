@@ -201,17 +201,7 @@ exception
         if dbms_sql.is_open(l_cursor) then
             dbms_sql.close_cursor(l_cursor);
         end if;
-        logger.log_error('run_sql2 failed: ' || sqlerrm, l_scope);
-        -- return error details as JSON
-        declare
-            l_err json_object_t := json_object_t();
-            l_err_detail json_object_t := json_object_t();
-        begin
-            l_err_detail.put('code', sqlcode);
-            l_err_detail.put('message', sqlerrm);
-            l_err_detail.put('backtrace', dbms_utility.format_error_backtrace());
-            l_err.put('error', l_err_detail);
-            return l_err.to_clob();
-        end;
+        logger.log_error('run_sql failed: ' || sqlerrm, l_scope);
+        raise;
 end run_sql;
 /
