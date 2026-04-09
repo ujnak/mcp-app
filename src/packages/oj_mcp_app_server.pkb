@@ -430,7 +430,7 @@ as
          * JSONRPC Request.
          */
         l_request_json json_object_t;
-        l_id           number;
+        l_id           sys.anydata;
         l_method       varchar2(128);
         l_params_obj   json_object_t;
         l_params       clob;
@@ -581,11 +581,12 @@ as
              * Retrieve the request ID. In MCP Inspector, it is a numeric value.
              * For notifications, the value is NULL; therefore, no validation is required.
              */
-            l_id := l_request_json.get_number('id');
+            l_id := oj_mcp_jsonrpc_utils.get_id(l_request_json);
+            -- l_id := l_request_json.get_number('id');
             if l_id is null then
                 logger.log_info('No id in the request', l_scope);
             else
-                logger.log_info('jsonrpc request id is ' || l_id, l_scope);
+                logger.log_info('jsonrpc request id is ' || oj_mcp_jsonrpc_utils.id_to_string(l_id), l_scope);
             end if;
 
             /*
@@ -684,7 +685,7 @@ as
         begin
             dbms_application_info.set_module(
                 module_name => l_ords_module_name,
-                action_name => p_session_id || ':' || l_id
+                action_name => p_session_id || ':' || oj_mcp_jsonrpc_utils.id_to_string(l_id)
             );
         end;
 
