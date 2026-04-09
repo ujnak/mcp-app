@@ -112,9 +112,13 @@ All scripts in this article are updated and are contained in this repository.
 
 - [MCPを話すOracle Databaseを作成する - ローカル・データベース編](https://apexugj.blogspot.com/2026/03/create-mcp-app-on-ords.html)
 
+- [MCPを話すOracle Databaseを作成する - オンプレミス19c編](https://apexugj.blogspot.com/2026/04/create-mcp-app-on-onpremis-19c.html)
+
 - [APEXアプリケーションのページ生成をMCP Appの簡易バンドラとして利用する](https://apexugj.blogspot.com/2026/03/generate-ui-resources-bundle-from-apex-page.html)
 
 - [MCP Appとして日報アプリを作成する](https://apexugj.blogspot.com/2026/03/simple-daily-report-mcp-app.html)
+
+- [ツールrun_sqlを実行するMCPアプリを作成する](https://apexugj.blogspot.com/2026/03/building-mcp-app-run-sql.html)
 
 ### Implementation of OpenResty(nginx) as a reverse proxy
 
@@ -135,3 +139,13 @@ All scripts in this article are updated and are contained in this repository.
 - [Role based JWT profileで保護したORDS REST APIにアクセスする - Auth0編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-auth0.html)
 
 - [Role based JWT profileで保護したORDS REST APIにアクセスする - Oracle IAM編](https://apexugj.blogspot.com/2025/12/call-ords-rest-api-by-mcp-inspector-with-oracle-iam.html)
+
+### Real Application Security and Resource Manager
+
+- [Entra IDで認証したリモートMCPサーバーにReal Application Securityを適用する - Autonomous AI Database編](https://apexugj.blogspot.com/2026/04/protect-remote-mcp-server-with-ras.html)
+
+- [Entra IDで認証したリモートMCPサーバーにReal Application Securityを適用する - オンプレミス19c編](https://apexugj.blogspot.com/2026/04/protect-remote-mcp-server-with-ras-onp19c.html)
+
+- [リモートMCPサーバーのツール実行をリソース・マネージャーで制御する - Autonomous AI Database編](https://apexugj.blogspot.com/2026/04/limit-remote-mcp-server-with-resource-manager.html)
+
+- [リモートMCPサーバーのツール実行をリソース・マネージャーで制御する - オンプレミス19c編](https://apexugj.blogspot.com/2026/04/limit-remote-mcp-server-with-resource-manager-onp19c.html)
