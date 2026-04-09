@@ -41,6 +41,14 @@ begin
     "sql": {
       "type": "string",
       "description": "SELECT statement to run on Oracle Database."
+    },
+    "offset": {
+      "type": "number",
+      "description": "The number of lines offset from the beginning. The default is 0, which corresponds to the first line."
+    },
+    "limit": {
+      "type": "string",
+      "description": "The maximum number of lines to be returned. The default is 15."
     }
   },
   "required": [
