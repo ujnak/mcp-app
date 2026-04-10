@@ -153,6 +153,8 @@ as
 
     l_tool_json json_object_t;
     l_tools_arr json_array_t;
+    /* annotation of MCP tool */
+    l_annotations json_object_t;
     /* MCP App resource _meta data */
     l_meta       json_object_t;
     l_meta_uri   json_object_t;
@@ -163,7 +165,8 @@ begin
     l_tools_arr := json_array_t();
     for r in (
         select
-            t.code tool_name, t.description description, t.response_schema parameters
+            t.id, t.code tool_name
+            , t.description description, t.response_schema parameters
             ,t.output_schema output_schema, t.visibility, r.uri uri
         from oj_mcp_uc_ai_tools t 
             join uc_ai_tool_tags g on t.id = g.tool_id
@@ -180,6 +183,29 @@ begin
         if r.output_schema is not null then
             l_tool_json.put('outputSchema', json_object_t(r.output_schema));
         end if;
+        /*
+         * include annotations if defined in oj_mcp_tools_annotations.
+         * tool_id of oj_mcp_tools_annotations is the primary key.
+         * so the result at most one row.
+         */
+        for a in (
+            select title,
+            json_object(
+                'readOnlyHint'    value case read_only_hint   when 0 then 'false' else 'true' end format json,
+                'destructiveHint' value case destructive_hint when 0 then 'false' else 'true' end format json,
+                'idempotentHint'  value case idempotent_hint  when 0 then 'false' else 'true' end format json,
+                'openWorldHint'   value case open_world_hint  when 0 then 'false' else 'true' end format json
+            ) as annotations_json
+            from oj_mcp_tools_annotations where tool_id = r.id
+        )
+        loop
+            l_annotations := json_object_t(a.annotations_json);
+            if a.title is not null then
+                l_annotations.put('title', a.title);
+            end if;
+            l_tool_json.put('annotations', l_annotations);
+        end loop;
+
         /*
          * MCP tool which has a resourceUri.
          */

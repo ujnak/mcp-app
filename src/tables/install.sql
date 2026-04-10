@@ -1,4 +1,12 @@
 begin
+    execute immediate 'drop table oj_mcp_tools_annotations';
+exception
+   when others then
+       null;
+end;
+/
+
+begin
     execute immediate 'drop table oj_mcp_tools_extras';
 exception
    when others then
@@ -146,6 +154,30 @@ references uc_ai_tools ("ID") on delete cascade enable;
 
 alter table oj_mcp_tools_extras add constraint oj_mcp_tools_extras_resource_id_fk foreign key ("RESOURCE_ID")
 references oj_mcp_ui_resources ("ID") on delete cascade enable;
+
+/*
+ * Tool annotations
+ */
+create table oj_mcp_tools_annotations (
+    tool_id          number not null,
+    title            varchar2(128),
+    read_only_hint   number(1) default 0 not null,
+    destructive_hint number(1) default 1 not null,
+    idempotent_hint  number(1) default 0 not null,
+    open_world_hint  number(1) default 1 not null,
+    constraint oj_mcp_tools_annotations_pk primary key ("TOOL_ID")
+);
+
+comment on table  oj_mcp_tools_annotations                  is 'Annotation flags of MCP Tool';
+comment on column oj_mcp_tools_annotations.tool_id          is 'id of tool stored in UC_AI_TOOLS';
+comment on column oj_mcp_tools_annotations.title            is 'title of the annotation of MCP Tool';
+comment on column oj_mcp_tools_annotations.read_only_hint   is 'tool is read only, default = false';
+comment on column oj_mcp_tools_annotations.destructive_hint is 'tool is destructive, default = true';
+comment on column oj_mcp_tools_annotations.idempotent_hint  is 'tool is idempotent, default = false';
+comment on column oj_mcp_tools_annotations.open_world_hint  is 'tool is publicly accessible, default = true';
+
+alter table oj_mcp_tools_annotations add constraint oj_mcp_tools_annotations_tool_id_fk foreign key ("TOOL_ID")
+references uc_ai_tools ("ID") on delete cascade enable;
 
 /*
  * Add definitions for resources and output_schema to UC_AI_TOOLS.
