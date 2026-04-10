@@ -12,7 +12,6 @@ begin
   "title": "get_current_user",
   "description": "Get current sign-in username."
 }');
-    -- Create the tool
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'get_current_user',
     p_description => 'Get current sign-in username.',
@@ -55,7 +54,6 @@ begin
     "sql"
   ]
 }');
-    -- Create the tool
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'run_sql',
     p_description => 'Run SQL SELECT statement on Oracle Database and return the result in JSON document.',
@@ -66,7 +64,6 @@ begin
   commit;
 end;
 /
-
 
 /**
  * Register function get_schema as a UC_AI tool.
@@ -88,7 +85,6 @@ begin
     }
   }
 }');
-    -- Create the tool
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'get_schema',
     p_description => 'return a list of tables and columns and its types that the schema contains .',
@@ -101,7 +97,7 @@ end;
 /
 
 /**
- * Register function get_current_user as a UC_AI tool.
+ * Register get_authenticated_identity as a UC_AI tool.
  */
 declare
   l_schema  json_object_t;
@@ -114,13 +110,37 @@ begin
   "title": "get_authenticated_identity",
   "description": "Get current sign-in username."
 }');
-    -- Create the tool
   l_tool_id := uc_ai_tools_api.create_tool_from_schema(
     p_tool_code => 'get_authenticated_identity',
     p_description => 'Get current sign-in username.',
     p_function_call => 'return ''{ "username": #AUTHENTICATED_IDENTITY# }'';',
     p_json_schema => l_schema,
     p_tags => apex_t_varchar2('sampleserver','run-sql')
+  );
+  commit;
+end;
+/
+
+/**
+ * Register function show_run_sql_ui as a UC_AI tool.
+ */
+declare
+  l_schema  json_object_t;
+  l_tool_id uc_ai_tools.id%type;
+begin
+  l_schema := json_object_t.parse('
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "show_run_sql_ui",
+  "description": "Show user interface to call run_sql tool."
+}');
+  l_tool_id := uc_ai_tools_api.create_tool_from_schema(
+    p_tool_code => 'show_run_sql_ui',
+    p_description => 'Show user interface to call run_sql tool.',
+    p_function_call => q'~return '';~',
+    p_json_schema => l_schema,
+    p_tags => apex_t_varchar2('sampleserver')
   );
   commit;
 end;

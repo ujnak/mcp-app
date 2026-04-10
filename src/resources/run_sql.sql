@@ -23,7 +23,7 @@ begin
     merge into oj_mcp_ui_resources t
     using (
         select
-            'Run SQL'                            name,
+            'show_run_sql_ui'                    name,
             'ui://run-sql/mcp-app.html'          uri,
             'text/html;profile=mcp-app'          mime_type,
             l_text                               text
@@ -42,19 +42,20 @@ begin
         values (s.name, s.uri, s.mime_type, s.text, l_update_user, l_update_time, l_update_user, l_update_time)
     ;
 
-    select id into l_tool_id from uc_ai_tools where code = 'run_sql';
-    select id into l_resource_id from oj_mcp_ui_resources where name = 'Run SQL';
+    select id into l_tool_id from uc_ai_tools where code = 'show_run_sql_ui';
+    select id into l_resource_id from oj_mcp_ui_resources where name = 'show_run_sql_ui';
    
     merge into oj_mcp_tools_extras t
     using (
-        select l_tool_id tool_id, l_resource_id resource_id from dual
+        select l_tool_id tool_id, l_resource_id resource_id, 2 visibility from dual
     ) s
     on (t.tool_id = s.tool_id)
     when matched then
         update set
-            t.resource_id = s.resource_id
+            t.resource_id = s.resource_id,
+            t.visibility  = s.visibility
     when not matched then
-        insert (tool_id, resource_id) values(s.tool_id, s.resource_id)
+        insert (tool_id, resource_id, visibility) values(s.tool_id, s.resource_id, s.visibility)
     ;
 
     delete from oj_mcp_ui_csp_domains where resource_id = l_resource_id;
