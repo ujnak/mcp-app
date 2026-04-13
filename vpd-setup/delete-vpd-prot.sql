@@ -20,4 +20,4 @@ drop procedure pred_employee_in_same_department;
 drop procedure pred_employee_is_manager;
 
 drop package oj_mcp_vpd_config;
-drop context emp_dept_ctx;
+-- drop context emp_dept_ctx;
