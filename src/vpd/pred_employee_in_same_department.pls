@@ -7,7 +7,7 @@ RETURN VARCHAR2
 AS
     pred VARCHAR2(80);
 BEGIN
-    pred := q'~department_id = SYS_CONTEXT('HREMP','department_id')~'; 
+    pred := q'~department_id = SYS_CONTEXT('emp_dept_ctx','department_id')~'; 
 RETURN pred;
 END;
 /
