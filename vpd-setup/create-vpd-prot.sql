@@ -1,18 +1,25 @@
 set serveroutput on
 set echo on
 
--- create context emp_dept_ctx
-create or replace context emp_dept_ctx using emp_dept_ctx_pkg;
-
--- create package to manage the context
+/*
+ * create context emp_dept_ctx
+ */
+create or replace context emp_dept_ctx using oj_mcp_vpd_config;
+-- create a package to manage context.
 @@src/vpd/oj_mcp_vpd_config.pks
 @@src/vpd/oj_mcp_vpd_config.pkb
-
+-- 
 grant execute on oj_mcp_vpd_config to &SCHEMA;
 
+/*
+ * Create policy functions.
+ */
 @@src/vpd/pred_employee_in_same_department.pls 
 @@src/vpd/pred_employee_is_manager.pls
 
+/*
+ * Create and apply VPD policy.
+ */
 begin
     dbms_rls.add_policy(
         object_schema => 'hr'
@@ -29,6 +36,7 @@ begin
     );
 end;
 /
+
 begin
     dbms_rls.add_policy(
         object_schema => 'hr'

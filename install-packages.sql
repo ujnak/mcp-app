@@ -13,3 +13,4 @@
 @src/procedures/oj_mcp_delete_handler.pls
 @src/procedures/oj_mcp_ras_post_handler.pls
 @src/procedures/oj_mcp_ras_delete_handler.pls
+@src/procedures/oj_mcp_vpd_post_handler.pls
