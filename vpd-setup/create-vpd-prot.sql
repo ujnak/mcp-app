@@ -1,6 +1,8 @@
 set serveroutput on
 set echo on
 
+define SCHEMA = &1
+
 /*
  * create context emp_dept_ctx
  */
