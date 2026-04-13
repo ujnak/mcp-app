@@ -1,3 +1,7 @@
+
+set serveroutput on
+set echo on
+
 begin
     dbms_rls.drop_policy(
         object_schema => 'hr'
@@ -11,3 +15,4 @@ begin
     );
 end;
 /
+
