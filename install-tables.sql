@@ -1,1 +1,1 @@
-@src/tables/install.sql
+@@src/tables/install.sql

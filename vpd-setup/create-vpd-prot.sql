@@ -6,16 +6,16 @@ set echo on
  */
 create or replace context emp_dept_ctx using oj_mcp_vpd_config;
 -- create a package to manage context.
-@@src/vpd/oj_mcp_vpd_config.pks
-@@src/vpd/oj_mcp_vpd_config.pkb
+@@../src/vpd/oj_mcp_vpd_config.pks
+@@../src/vpd/oj_mcp_vpd_config.pkb
 -- 
 grant execute on oj_mcp_vpd_config to &SCHEMA;
 
 /*
  * Create policy functions.
  */
-@@src/vpd/pred_employee_in_same_department.pls 
-@@src/vpd/pred_employee_is_manager.pls
+@@../src/vpd/pred_employee_in_same_department.pls 
+@@../src/vpd/pred_employee_is_manager.pls
 
 /*
  * Create and apply VPD policy.
