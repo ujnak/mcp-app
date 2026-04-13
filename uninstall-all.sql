@@ -25,8 +25,11 @@ declare
     l_drop_cmds t_command_table := t_command_table(
         'drop procedure oj_mcp_ras_post_handler',
         'drop procedure oj_mcp_ras_delete_handler',
+        'drop procedure oj_mcp_vpd_post_handler',
         'drop procedure oj_mcp_post_handler',
         'drop procedure oj_mcp_delete_handler',
+        'drop package oj_mdp_vpd_config',
+        'drop package oj_mcp_ras_config',
         'drop package oj_mcp_ras_ctx',
         'drop package oj_mcp_app_server',
         'drop package oj_mcp_app_methods',
