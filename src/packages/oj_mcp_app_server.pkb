@@ -152,6 +152,8 @@ as
     exception
         when others then
             logger.log_error('Cancel Failed: ' || sqlerrm, l_scope);
+            logger.log_error(dbms_utility.format_error_stack, l_scope);
+            logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             /* status code 204 for notifications.  */
             p_status_code := 204;
             p_error  := null;
@@ -208,6 +210,9 @@ as
             l_error_json := json_object_t();
             l_error_json.put('code', C_INTERNAL_ERROR);
             l_error_json.put('message', 'Error in tools_list: ' || sqlerrm);
+            logger.log_error(sqlerrm, l_scope);
+            logger.log_error(dbms_utility.format_error_stack, l_scope);
+            logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             p_error := l_error_json.to_clob();
             p_result := null;
             p_status_code := 500;
@@ -281,6 +286,9 @@ as
             l_error_json := json_object_t();
             l_error_json.put('code', C_INTERNAL_ERROR);
             l_error_json.put('message', 'Error in tools_call: ' || sqlerrm);
+            logger.log_error(sqlerrm, l_scope);
+            logger.log_error(dbms_utility.format_error_stack, l_scope);
+            logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             p_error := l_error_json.to_clob();
             p_result := null;
             p_status_code := 500;
@@ -314,6 +322,9 @@ as
             l_error_json := json_object_t();
             l_error_json.put('code', C_INTERNAL_ERROR);
             l_error_json.put('message', 'Error in resources_list: ' || sqlerrm);
+            logger.log_error(sqlerrm, l_scope);
+            logger.log_error(dbms_utility.format_error_stack, l_scope);
+            logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             p_error := l_error_json.to_clob();
             p_result := null;
             p_status_code := 500;
@@ -377,12 +388,15 @@ as
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
-        logger.log_info('Resource read successfully for uri ' || l_uri || '. Result: ' || p_result, l_scope);
+        logger.log_info('Resource read successfully for uri ' || l_uri, l_scope);
     exception
         when others then
             l_error_json := json_object_t();
             l_error_json.put('code', C_INTERNAL_ERROR);
             l_error_json.put('message', 'Error in resources_read: ' || sqlerrm);
+            logger.log_error(sqlerrm, l_scope);
+            logger.log_error(dbms_utility.format_error_stack, l_scope);
+            logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             p_error := l_error_json.to_clob();
             p_result := null;
             p_status_code := 500;
@@ -483,6 +497,8 @@ as
         exception
             when others then
                 logger.log_error('Failed to set APEX workspace ' || l_ords_pattern || ' ' || sqlerrm, l_scope);
+                logger.log_error(dbms_utility.format_error_stack, l_scope);
+                logger.log_error(dbms_utility.format_error_backtrace, l_scope);
                 raise;
         end;
 
@@ -495,6 +511,8 @@ as
         exception
             when no_data_found then
                 logger.log_error('No APEX application with alias ' || l_ords_module_name || ' found. ' || sqlerrm, l_scope);
+                logger.log_error(dbms_utility.format_error_stack, l_scope);
+                logger.log_error(dbms_utility.format_error_backtrace, l_scope);
                 raise;
         end;
 
@@ -609,6 +627,8 @@ as
                     p_message => 'Invalid JSON format in request body. sqlerrm: ' || sqlerrm
                 );
                 logger.log_error('Invalid JSON format in request body. sqlerrm: ' || sqlerrm, l_scope);
+                logger.log_error(dbms_utility.format_error_stack, l_scope);
+                logger.log_error(dbms_utility.format_error_backtrace, l_scope);
                 return;
         end;
         
@@ -772,7 +792,9 @@ as
                 apex_session.detach;
             exception
                 when others then
-                    logger.log_info('Failed to detach APEX session: ' || g_mcp_session_id || ' ' || sqlerrm, l_scope);
+                    logger.log_error('Failed to detach APEX session: ' || g_mcp_session_id || ' ' || sqlerrm, l_scope);
+                    logger.log_error(dbms_utility.format_error_stack, l_scope);
+                    logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             end;
     end ords_handler;
 
