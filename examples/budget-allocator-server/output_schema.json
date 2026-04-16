@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bas_budget_data_response.schema.json",
+  "title": "BudgetDataResponse",
+  "type": "object",
+  "required": ["config", "analytics"],
+  "additionalProperties": false,
+  "properties": {
+
+    "config": {
+      "title": "BudgetConfig",
+      "description": "Static configuration for the budget application.",
+      "type": "object",
+      "required": ["categories", "presetBudgets", "defaultBudget", "currency", "currencySymbol"],
+      "additionalProperties": false,
+      "properties": {
+
+        "categories": {
+          "description": "List of budget categories available in the application.",
+          "type": "array",
+          "items": {
+            "title": "BudgetCategory",
+            "description": "A single budget category definition.",
+            "type": "object",
+            "required": ["id", "name", "color", "defaultPercent"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Unique identifier for the category.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Human-readable display name of the category.",
+                "type": "string"
+              },
+              "color": {
+                "description": "Display color as a 6-digit hex code (e.g. #3b82f6).",
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "defaultPercent": {
+                "description": "Default allocation percentage for this category (0–100).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+
+        "presetBudgets": {
+          "description": "Preset total budget amounts available for quick selection.",
+          "type": "array",
+          "items": {
+            "description": "A preset budget amount. Must be greater than zero.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+
+        "defaultBudget": {
+          "description": "Default total budget amount applied on initial load. Must be greater than zero.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "currency": {
+          "description": "ISO 4217 currency code (e.g. USD).",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3
+        },
+        "currencySymbol": {
+          "description": "Currency symbol used for display (e.g. $).",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "analytics": {
+      "title": "BudgetAnalytics",
+      "description": "Historical and benchmark analytics data.",
+      "type": "object",
+      "required": ["history", "benchmarks", "stages", "defaultStage"],
+      "additionalProperties": false,
+      "properties": {
+
+        "history": {
+          "description": "Monthly allocation history ordered by month ascending.",
+          "type": "array",
+          "items": {
+            "title": "HistoricalMonth",
+            "description": "Allocation data for a single calendar month.",
+            "type": "object",
+            "required": ["month", "allocations"],
+            "additionalProperties": false,
+            "properties": {
+              "month": {
+                "description": "Calendar month in YYYY-MM format.",
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+              },
+              "allocations": {
+                "description": "Map of category ID to allocation percentage for this month. Values are normalised to sum to 100.",
+                "type": "object",
+                "additionalProperties": {
+                  "description": "Allocation percentage for a category (0–100).",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              }
+            }
+          }
+        },
+
+        "benchmarks": {
+          "description": "Industry benchmark data grouped by company stage.",
+          "type": "array",
+          "items": {
+            "title": "StageBenchmark",
+            "description": "Benchmark percentiles for all categories at a given company stage.",
+            "type": "object",
+            "required": ["stage", "categoryBenchmarks"],
+            "additionalProperties": false,
+            "properties": {
+              "stage": {
+                "description": "Company stage label (e.g. Seed, Series A).",
+                "type": "string"
+              },
+              "categoryBenchmarks": {
+                "description": "Map of category ID to benchmark percentile values.",
+                "type": "object",
+                "additionalProperties": {
+                  "title": "BenchmarkPercentiles",
+                  "description": "25th, 50th, and 75th percentile allocation benchmarks for a category.",
+                  "type": "object",
+                  "required": ["p25", "p50", "p75"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "p25": {
+                      "description": "25th percentile allocation benchmark (0–100).",
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "p50": {
+                      "description": "50th percentile (median) allocation benchmark (0–100).",
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "p75": {
+                      "description": "75th percentile allocation benchmark (0–100).",
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+
+        "stages": {
+          "description": "Ordered list of available company stages.",
+          "type": "array",
+          "items": {
+            "description": "A company stage label.",
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+
+        "defaultStage": {
+          "description": "The company stage selected by default on initial load.",
+          "type": "string"
+        }
+      }
+    }
+
+  }
+}
