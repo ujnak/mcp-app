@@ -1,0 +1,11 @@
+drop procedure bas_generate_history;
+drop function bas_get_budget_data_response;
+drop table bas_stage_benchmark_percentiles;
+drop table bas_stage_benchmarks;
+drop table bas_budget_analytics_stages;
+drop table bas_budget_analytics;
+drop table bas_historical_month_allocations;
+drop table bas_historical_months;
+drop table bas_budget_config_preset_budgets;
+drop table bas_budget_config;
+drop table bas_budget_categories;

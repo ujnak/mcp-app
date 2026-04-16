@@ -24,9 +24,11 @@ as
             if l_elem.is_number then
                 l_id_number := l_json.get_number(l_name);
                 l_id_anydata := sys.anydata.convertnumber(l_id_number);
+                logger.log_info('request id is number, id = ' || l_id_number, l_scope);
             elsif l_elem.is_string then
                 l_id_string := l_json.get_string(l_name);
                 l_id_anydata := sys.anydata.convertvarchar2(l_id_string);
+                logger.log_info('request id is string, id = ' || l_id_string, l_scope);
             else
                 /*
                  * TODO:
@@ -52,15 +54,21 @@ as
     return json_object_t
     as
         l_scope logger_logs.scope%type := gc_scope_prefix || 'put_id';
+        l_id_number number;
+        l_id_string varchar2(128);
     begin
         if l_id is null then
             /* do nothing if id does not supplied */
             return l_json;
         end if;
         if l_id.gettypename = 'SYS.NUMBER' then
-            l_json.put('id', sys.anydata.accessnumber(l_id));
+            l_id_number := sys.anydata.accessnumber(l_id);
+            l_json.put('id', l_id_number);
+            logger.log_info('response id is number, id = ' || l_id_number, l_scope);
         elsif l_id.gettypename = 'SYS.VARCHAR2' then
-            l_json.put('id', sys.anydata.accessvarchar2(l_id));
+            l_id_string := sys.anydata.accessvarchar2(l_id);
+            l_json.put('id', l_id_string);
+            logger.log_info('response id is string, id = ' || l_id_string, l_scope);
         else
             /* should raise execption. */
             logger.log_error('id is not number or string ', l_scope);
