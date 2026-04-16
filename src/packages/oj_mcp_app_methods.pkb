@@ -241,12 +241,13 @@ return json_object_t
 as
     l_scope logger_logs.scope%type := gc_scope_prefix || 'generate_object_for_tools_call';
 
-    l_content_arr json_array_t;
-    l_out         clob;
-    l_args_clob   clob;
-    l_out_obj     json_object_t;
-    l_result_json json_object_t;
-    l_output_schema oj_mcp_uc_ai_tools.output_schema%type;
+    l_content_arr        json_array_t;
+    l_out                clob;
+    l_args_clob          clob;
+    l_out_obj            json_object_t;
+    l_structured_content json_object_t;
+    l_result_json        json_object_t;
+    l_output_schema      oj_mcp_uc_ai_tools.output_schema%type;
     /* execute immediate */
     l_fc_code     uc_ai_tools.function_call%type := null;
     l_plsql_block varchar2(32767);
@@ -456,16 +457,71 @@ begin
     end if;
     /* Format output.  */
     l_content_arr := json_array_t();
-    l_out_obj     := json_object_t();
-    l_out_obj.put('type', 'text');
-    l_out_obj.put('text', l_out);
-    /* put tool output to content array */
-    l_content_arr.append(l_out_obj);
     l_result_json := json_object_t();
-    l_result_json.put('content', l_content_arr);
-    /* is output_schema  defined ? if yes, include structuredContent */
+    if substr(l_out, 1, 1) = chr(123) then -- character start with '{' assumes JSON
+        /* JSON */
+        logger.log_info('return_val is JSON', l_scope);
+        begin
+            l_out_obj := json_object_t(l_out);
+            if l_out_obj.has('content') then
+                logger.log_info('content found', l_scope);
+                l_content_arr := l_out_obj.get_array('content');
+            end if;
+            if l_out_obj.has('structuredContent') then
+                logger.log_info('structuredContent found', l_scope);
+                l_structured_content := l_out_obj.get_object('structuredContent');
+            end if;
+        exception
+            when others then
+                logger.log_info('Failed to parse the tools output, treat it as string. ' || sqlerrm, l_scope);
+                l_out_obj := json_object_t();
+                l_out_obj.put('type', 'text');
+                l_out_obj.put('text', l_out);
+                /* put tool output to content array */
+                l_content_arr.append(l_out_obj);
+        end;
+    else
+        logger.log_info('return_val is not JSON', l_scope);
+        /* not JSON */
+        l_out_obj := json_object_t();
+        l_out_obj.put('type', 'text');
+        l_out_obj.put('text', l_out);
+        /* put tool output to content array */
+        l_content_arr.append(l_out_obj);
+    end if;
+    /*
+     * Regenerate the tool output.
+     */
+    l_result_json := json_object_t();
+    /* content only */
+    if l_content_arr.get_size() > 0 then
+        l_result_json.put('content', l_content_arr);
+    end if;
+    /* include structuredContent */
     if l_output_schema is not null then
-        l_result_json.put('structuredContent', json_object_t(l_out));
+        logger.log_info('outputSchema exist', l_scope);
+        if l_content_arr.get_size() = 0 then
+            /* JSON without content - treat tool output as string */
+            l_out_obj := json_object_t();
+            l_out_obj.put('type', 'text');
+            l_out_obj.put('text', l_out);
+            l_content_arr.append(l_out_obj);
+            l_result_json.put('content', l_content_arr);
+        end if;
+        /* JSON with content - content has already added to l_result_json */
+        if l_structured_content is null then
+            l_structured_content := json_object_t(l_out);
+        end if;
+        l_result_json.put('structuredContent', l_structured_content);
+    else
+        logger.log_info('outputSchema not exist', l_scope);
+        if l_content_arr.get_size() = 0 then
+            l_out_obj := json_object_t();
+            l_out_obj.put('type', 'text');
+            l_out_obj.put('text', l_out);
+            l_content_arr.append(l_out_obj);
+            l_result_json.put('content', l_content_arr);
+        end if;
     end if;
     l_result_json.put('isError', is_error);
     logger.log_info('result: ' || l_result_json.to_clob(), l_scope);
