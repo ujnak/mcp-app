@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chs_cohort_data_response.schema.json",
+  "title": "CohortData",
+  "description": "Cohort retention heatmap dataset.",
+  "type": "object",
+  "required": ["cohorts", "periods", "periodLabels", "metric", "periodType", "generatedAt"],
+  "additionalProperties": false,
+  "properties": {
+
+    "cohorts": {
+      "description": "Per-cohort retention rows ordered oldest first.",
+      "type": "array",
+      "items": {
+        "title": "CohortRow",
+        "description": "A single cohort row with its retention cells.",
+        "type": "object",
+        "required": ["cohortId", "cohortLabel", "originalUsers", "cells"],
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "description": "Cohort identifier in YYYY-MM format.",
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "cohortLabel": {
+            "description": "Human-readable cohort label (e.g. 'Jan 2026').",
+            "type": "string"
+          },
+          "originalUsers": {
+            "description": "Number of users in the cohort at period 0.",
+            "type": "number",
+            "minimum": 0
+          },
+          "cells": {
+            "description": "Retention cells for this cohort, ordered by periodIndex ascending.",
+            "type": "array",
+            "items": {
+              "title": "CohortCell",
+              "description": "Retention measurement for one cohort/period intersection.",
+              "type": "object",
+              "required": [
+                "cohortIndex",
+                "periodIndex",
+                "retention",
+                "usersRetained",
+                "usersOriginal"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cohortIndex": {
+                  "description": "Zero-based row index of the cohort.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "periodIndex": {
+                  "description": "Zero-based column index of the period (0 = signup period).",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "retention": {
+                  "description": "Retention rate in [0, 1].",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "usersRetained": {
+                  "description": "Number of users still active in this period.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "usersOriginal": {
+                  "description": "Original cohort size (constant across cells of the same cohort).",
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "periods": {
+      "description": "Period column codes (e.g. 'M0', 'M1', ...).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+
+    "periodLabels": {
+      "description": "Human-readable period labels (e.g. 'Month 0', 'Month 1', ...).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+
+    "metric": {
+      "description": "Retention metric this dataset was generated for.",
+      "type": "string",
+      "enum": ["retention", "revenue", "active"]
+    },
+
+    "periodType": {
+      "description": "Period granularity used to build the cohorts.",
+      "type": "string",
+      "enum": ["monthly", "weekly"]
+    },
+
+    "generatedAt": {
+      "description": "ISO 8601 UTC timestamp when the dataset was generated.",
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

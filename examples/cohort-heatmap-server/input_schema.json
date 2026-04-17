@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "chs_get_cohort_data_input.schema.json",
+  "title": "GetCohortDataInput",
+  "description": "Input parameters for the get-cohort-data tool.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "metric": {
+      "description": "Retention metric to compute.",
+      "type": "string",
+      "enum": ["retention", "revenue", "active"],
+      "default": "retention"
+    },
+    "periodType": {
+      "description": "Period granularity used to build the cohorts.",
+      "type": "string",
+      "enum": ["monthly", "weekly"],
+      "default": "monthly"
+    },
+    "cohortCount": {
+      "description": "Number of cohorts to generate.",
+      "type": "number",
+      "minimum": 3,
+      "maximum": 24,
+      "default": 12
+    },
+    "maxPeriods": {
+      "description": "Maximum number of periods (columns) per cohort.",
+      "type": "number",
+      "minimum": 3,
+      "maximum": 24,
+      "default": 12
+    }
+  }
+}
