@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implement TypeScript MCP server for Oracle Database</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --text: #e8e8e8;
+    --text-muted: #888;
+    --user-bg: #1e2433;
+    --user-border: #3d5a99;
+    --assistant-bg: #1a1a1a;
+    --assistant-border: #2e2e2e;
+    --accent: #d97757;
+    --green: #4caf50;
+    --code-bg: #161616;
+    --code-text: #e8e8e8;
+    --thinking-bg: #1a1f2e;
+    --tool-bg: #1a1a2e;
+    --tool-border: #3d3d6e;
+    --result-bg: #1a2a1a;
+    --result-border: #3d6e3d;
+    --error-bg: #2a1a1a;
+    --error-border: #6e3d3d;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 24px 16px;
+  }
+
+  .session-container {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  .session-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0 0 24px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .session-title::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Turn */
+  .turn {
+    margin-bottom: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .turn.user {
+    border-color: var(--user-border);
+    background: var(--user-bg);
+  }
+
+  .turn.assistant {
+    border-color: var(--assistant-border);
+    background: var(--assistant-bg);
+  }
+
+  .turn-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .avatar-user { background: var(--user-border); color: white; }
+  .avatar-assistant { background: var(--accent); color: white; }
+
+  .role-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .timestamp {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .turn-body {
+    padding: 16px;
+  }
+
+  /* Text */
+  .text-block { margin-bottom: 8px; }
+  .text-block:last-child { margin-bottom: 0; }
+
+  p { margin-bottom: 12px; }
+  p:last-child { margin-bottom: 0; }
+
+  h1, h2, h3 {
+    color: var(--text);
+    margin: 16px 0 8px;
+    font-weight: 600;
+  }
+  h1 { font-size: 20px; }
+  h2 { font-size: 17px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  h3 { font-size: 15px; }
+
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; }
+
+  strong { color: #fff; font-weight: 600; }
+  em { color: #ccc; font-style: italic; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* Code */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 12px 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .lang {
+    display: block;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+  }
+
+  .code-block pre {
+    padding: 12px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--code-text);
+  }
+
+  .inline-code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #d4a574;
+  }
+
+  /* Thinking */
+  .thinking-block {
+    margin: 12px 0;
+    border: 1px solid var(--tool-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--thinking-bg);
+  }
+
+  .thinking-block summary {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-muted);
+    user-select: none;
+  }
+
+  .thinking-block summary:hover { color: var(--text); }
+
+  .thinking-content {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  /* Tool Use */
+  .tool-use {
+    margin: 10px 0;
+    border: 1px solid var(--tool-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--tool-bg);
+  }
+
+  .tool-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--tool-border);
+  }
+
+  .tool-icon { font-size: 12px; }
+
+  .tool-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: #a0a0ff;
+  }
+
+  .tool-input pre {
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  /* Tool Result */
+  .tool-result {
+    margin: 6px 0 10px;
+    border: 1px solid var(--result-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--result-bg);
+  }
+
+  .tool-result-error {
+    border-color: var(--error-border);
+    background: var(--error-bg);
+  }
+
+  .tool-result-header {
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tool-result-content pre {
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+<div class="session-container">
+  <div class="session-title">Implement TypeScript MCP server for Oracle Database</div>
+  
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:07</span>
+  </div>
+  <div class="turn-body">
+    <p>以下のTypeScriptのMCPサーバーの実装を、アタッチしているOracle Database上で動作するMCPサーバーのフレームワークに合わせて、Zodのスキーマ定義を表定義に、データの投入をINSERT文に、ファンクションはPL/SQLno</p>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:07</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:07</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>メッセージが途中で切れているようです。確認させてください：</p>
+<ol><li>1. 「アタッチしているTypeScriptのMCPサーバーの実装」とありますが、添付ファイルが見当たりません。対象のファイルパスを教えていただけますか？</li><li>2. 最後の文章「ファンクションはPL/SQLno」で途切れています。「PL/SQLのファンクションに変換する」というご要望でしょうか？</li><li>3. 変換先の「Oracle Database上で動作するMCPサーバーのフレームワーク」について、参照すべきリポジトリ内のサンプルやドキュメントはありますか？</li></ol></div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:09</span>
+  </div>
+  <div class="turn-body">
+    <p>@/Users/********/Documents/mcp-app @/Users/********/Documents/ext-apps/examples/cohort-heatmap-server/server.ts 1. ディレクトリmcp-appをアタッチしました。<br><ol><li>2. PL/SQLのファンクションに変換してください。</li><li>3. server.tsをアタッチしました。</li></ol></p>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:09</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:09</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>mcp-appフレームワークの構造を理解するため探索します。</p></div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:09</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Agent</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;description&quot;: &quot;Explore mcp-app Oracle MCP framework&quot;,
+  &quot;subagent_type&quot;: &quot;Explore&quot;,
+  &quot;prompt&quot;: &quot;Explore the directory `/Users/********/Documents/mcp-app` thoroughly to understand how this Oracle Database MCP server framework works.\n\nI need to convert a TypeScript MCP server (which uses Zod schemas and in-memory data generation) into this framework. Specifically I need to understand:\n\n1. **Directory structure** — what&#x27;s in `app/`, `examples/`, `src/`, `ords/`? Where do MCP servers live?\n2. **How an existing example MCP server is structured** — look at `examples/` and find a complete server example. Pay special attention to any \&quot;budget-allocator-server\&quot; example that was recently added (per recent commits).\n3. **How tools are defined** — How are tool schemas declared? Is there an output_schema definition pattern (per recent commit \&quot;add output_schema definition\&quot;)? How are inputs/outputs typed?\n4. **Database setup** — How are tables created? Look at `install-tables.sql`, `install-sampleserver.sql`, `install-all*.sql`. What&#x27;s the convention?\n5. **How PL/SQL functions are written and registered** — How does a tool call dispatch into PL/SQL? What&#x27;s the calling convention (parameters, return types like JSON/CLOB/object types)?\n6. **How data insertion is done** — INSERT statement patterns, sample data files.\n7. **README.md content** — high-level architecture description.\n\nReport:\n- Tree structure of relevant directories (don&#x27;t dump everything — just the parts relevant to defining a new MCP server)\n- File paths of: a complete example server (preferably budget-allocator), the install scripts that would need to be modified or added, any PL/SQL package skeleton\n- Code snippets showing: (a) how a tool is registered with input/output schema, (b) how a PL/SQL function returns structured data to the MCP layer, (c) how a CREATE TABLE statement is written for sample data\n- Any naming conventions (table names, schema names, package names)\n\nBe thorough — I need enough detail to actually write a new server end-to-end. ~500 words is fine.&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>Excellent! Now I have a comprehensive understanding. Let me create a detailed report for the user.
+
+## Comprehensive Exploration Report: Oracle Database MCP Server Framework
+
+I&#x27;ve thoroughly explored the `/Users/********/Documents/mcp-app` directory. Here&#x27;s what you need to understand to convert a TypeScript MCP server into this Oracle Database framework:
+
+---
+
+### **1. Directory Structure**
+
+```
+mcp-app/
+├── src/                     # Core MCP framework (shared across all servers)
+│   ├── packages/           # PL/SQL packages (OJ_MCP_*)
+│   │   ├── oj_mcp_jsonrpc_utils.*
+│   │   ├── oj_mcp_app_utils.*
+│   │   ├── oj_mcp_app_methods.*
+│   │   └── oj_mcp_app_server.*    # Main MCP request dispatcher
+│   ├── procedures/         # Request handlers
+│   │   ├── oj_mcp_post_handler.pls
+│   │   ├── oj_mcp_delete_handler.pls
+│   ├── tools/              # Sample tool implementations
+│   │   ├── get_schema.pls
+│   │   ├── run_sql.pls
+│   │   ├── get_current_user.pls
+│   │   └── register_tools.sql    # Tool registration (uses uc_ai_tools_api)
+│   ├── tables/
+│   └── resources/          # UI resource definitions
+├── examples/               # Complete server examples
+│   ├── budget-allocator-server/  # Full-featured example (preferred template)
+│   │   ├── bas_create_tables.sql
+│   │   ├── bas_get_budget_data_response.sql
+│   │   ├── bas_prepare_budget_*.sql  (sample data)
+│   │   ├── output_schema.json   # Output schema definition
+│   │   └── bas_install.sql
+│   └── basic-server/              # Simpler example
+├── ords/                   # ORDS REST module definitions
+│   └── ORDS_REST_APEXDEV_sampleserver.sql
+├── install-tables.sql
+├── install-packages.sql
+└── install-sampleserver.sql  # Main installation template
+```
+
+**Key insight:** Each MCP server is self-contained but uses the shared framework in `src/`. You add your server&#x27;s tables, tools, and data under its own namespace (e.g., `bas_` prefix for budget-allocator).
+
+---
+
+### **2. How to Define a Complete Server: Budget-Allocator Example**
+
+The **budget-allocator-server** (added in commit `8c8a0f6`) is the canonical reference. It demonstrates:
+
+- **9 data tables** modeling nested Zod schemas (categories, config, historical months, analytics benchmarks)
+- **1 response function** (`bas_get_budget_data_response`) that builds complex JSON from tables
+- **1 output schema** (`output_schema.json`) defining the MCP tool output
+- **Data initialization** via SQL INSERTs and stored procedures
+
+File paths:
+- `/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_create_tables.sql` (schema)
+- `/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_get_budget_data_response.sql` (response function)
+- `/Users/********/Documents/mcp-app/examples/budget-allocator-server/output_schema.json` (schema definition)
+
+---
+
+### **3. Tool Definition &amp; Registration Pattern**
+
+Tools are registered via the UC_AI framework (United Codes UC_AI). The pattern:
+
+**Input schema** (JSON Schema 2020-...</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>budget-allocator-serverの実際の実装を詳しく見て、変換のパターンを把握します。</p></div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Bash</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;command&quot;: &quot;ls /Users/********/Documents/mcp-app/examples/budget-allocator-server/&quot;,
+  &quot;description&quot;: &quot;List budget-allocator-server files&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>bas_create_tables.sql
+bas_drop_all.sql
+bas_generate_history.sql
+bas_get_budget_data_response.sql
+bas_install.sql
+bas_prepare_budget_analytics.sql
+bas_prepare_budget_categories.sql
+bas_prepare_budget_config.sql
+output_schema.json</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_install.sql&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	set serveroutput on
+2	-- create tables
+3	@@bas_create_tables.sql
+4	-- procedure to generate sample data.
+5	@@bas_generate_history.sql
+6	-- function to generate the response for tools call.
+7	@@bas_get_budget_data_response.sql
+8	-- insert test data 
+9	@@bas_prepare_budget_categories.sql
+10	@@bas_prepare_budget_config.sql
+11	--
+12	begin
+13	    bas_generate_history;
+14	end;
+15	/
+16	--
+17	@@bas_prepare_budget_analytics.sql
+18	commit;
+19	-- generate tools call response
+20	begin
+21	    dbms_output.put_line(bas_get_budget_data_response);
+22	end;
+23	/
+24	exit;
+25	</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_create_tables.sql&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	-- ============================================================
+2	-- Budget Application Table Definitions for Oracle Database
+3	-- ============================================================
+4	
+5	-- ------------------------------------------------------------
+6	-- 1. bas_budget_categories
+7	--    BudgetCategorySchema + BudgetCategoryInternal
+8	-- ------------------------------------------------------------
+9	create table bas_budget_categories (
+10	    id               varchar2(100)   not null,
+11	    name             varchar2(200)   not null,
+12	    color            varchar2(50)    not null,
+13	    default_percent  number(10, 4)   not null,
+14	    trend_per_month  number(10, 4),
+15	    constraint bas_pk_budget_categories primary key (id)
+16	);
+17	
+18	-- ------------------------------------------------------------
+19	-- 2. bas_budget_config
+20	--    BudgetConfigSchema (scalar fields)
+21	-- ------------------------------------------------------------
+22	create table bas_budget_config (
+23	    id               number          generated always as identity,
+24	    default_budget   number(15, 4)   not null,
+25	    currency         varchar2(10)    not null,
+26	    currency_symbol  varchar2(10)    not null,
+27	    constraint bas_pk_budget_config primary key (id)
+28	);
+29	
+30	-- ------------------------------------------------------------
+31	-- 3. bas_budget_config_preset_budgets
+32	--    BudgetConfigSchema.presetBudgets: z.array(z.number())
+33	-- ------------------------------------------------------------
+34	create table bas_budget_config_preset_budgets (
+35	    id               number          generated always as identity,
+36	    config_id        number          not null,
+37	    sort_order       number          not null,
+38	    preset_value     number(15, 4)   not null,
+39	    constraint bas_pk_config_presets    primary key (id),
+40	    constraint bas_fk_presets_config    foreign key (config_id)
+41	        references bas_budget_config (id) on delete cascade
+42	);
+43	
+44	-- ------------------------------------------------------------
+45	-- 4. bas_historical_months
+46	--    HistoricalMonthSchema (parent)
+47	-- ------------------------------------------------------------
+48	create table bas_historical_months (
+49	    id               number          generated always as identity,
+50	    month            varchar2(20)    not null,
+51	    constraint bas_pk_historical_months primary key (id),
+52	    constraint bas_uq_historical_months unique (month)
+53	);
+54	
+55	-- ------------------------------------------------------------
+56	-- 5. bas_historical_month_allocations
+57	--    HistoricalMonthSchema.allocations: z.record(z.string(), z.number())
+58	-- ------------------------------------------------------------
+59	create table bas_historical_month_allocations (
+60	    id               number          generated always as identity,
+61	    month_id         number          not null,
+62	    category_id      varchar2(100)   not null,
+63	    allocation       number(15...</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_get_budget_data_response.sql&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	create or replace function bas_get_budget_data_response
+2	    return clob
+3	as
+4	    -- root
+5	    l_root              json_object_t := json_object_t();
+6	
+7	    -- config
+8	    l_config            json_object_t := json_object_t();
+9	    l_categories        json_array_t  := json_array_t();
+10	    l_category          json_object_t;
+11	    l_presets           json_array_t  := json_array_t();
+12	
+13	    -- analytics
+14	    l_analytics         json_object_t := json_object_t();
+15	    l_history           json_array_t  := json_array_t();
+16	    l_month_obj         json_object_t;
+17	    l_allocations       json_object_t;
+18	    l_benchmarks        json_array_t  := json_array_t();
+19	    l_benchmark_obj     json_object_t;
+20	    l_cat_benchmarks    json_object_t;
+21	    l_percentiles       json_object_t;
+22	    l_stages            json_array_t  := json_array_t();
+23	
+24	    -- work
+25	    l_analytics_id      bas_budget_analytics.id%type;
+26	    l_default_stage     bas_budget_analytics.default_stage%type;
+27	begin
+28	    -- ============================================================
+29	    -- config.categories
+30	    -- trendPerMonth は BudgetCategorySchema 外のため除外
+31	    -- ============================================================
+32	    for r in (
+33	        select id, name, color, default_percent
+34	        from   bas_budget_categories
+35	        order  by id
+36	    ) loop
+37	        l_category := json_object_t();
+38	        l_category.put(&#x27;id&#x27;,             r.id);
+39	        l_category.put(&#x27;name&#x27;,           r.name);
+40	        l_category.put(&#x27;color&#x27;,          r.color);
+41	        l_category.put(&#x27;defaultPercent&#x27;, r.default_percent);
+42	        l_categories.append(l_category);
+43	    end loop;
+44	
+45	    -- ============================================================
+46	    -- config.presetBudgets
+47	    -- ============================================================
+48	    for r in (
+49	        select preset_value
+50	        from   bas_budget_config_preset_budgets
+51	        where  config_id = (select id from bas_budget_config fetch first 1 rows only)
+52	        order  by sort_order
+53	    ) loop
+54	        l_presets.append(r.preset_value);
+55	    end loop;
+56	
+57	    -- ============================================================
+58	    -- config
+59	    -- ============================================================
+60	    for r in (
+61	        select default_budget, currency, currency_symbol
+62	        from   bas_budget_config
+63	        fetch first 1 rows only
+64	    ) loop
+65	        l_config.put(&#x27;categories&#x27;,     l_categories);
+66	        l_config.put(&#x27;presetBudgets&#x27;,  l_presets);
+67	        l_config.put(&#x27;defaultBudget&#x27;,  r.default_budget);
+68	        l_config.put(&#x27;currency&#x27;,       r.currency);
+69	        l_config.put(&#x27;currencySymbol&#x27;, r.currency_symbol);
+70	    end loop;
+71	
+72	    -- ============================================================
+73	    -- analytics parent
+74	    -- ============================================================
+75...</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/budget-allocator-server/output_schema.json&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:11</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	{
+2	  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+3	  &quot;$id&quot;: &quot;bas_budget_data_response.schema.json&quot;,
+4	  &quot;title&quot;: &quot;BudgetDataResponse&quot;,
+5	  &quot;type&quot;: &quot;object&quot;,
+6	  &quot;required&quot;: [&quot;config&quot;, &quot;analytics&quot;],
+7	  &quot;additionalProperties&quot;: false,
+8	  &quot;properties&quot;: {
+9	
+10	    &quot;config&quot;: {
+11	      &quot;title&quot;: &quot;BudgetConfig&quot;,
+12	      &quot;description&quot;: &quot;Static configuration for the budget application.&quot;,
+13	      &quot;type&quot;: &quot;object&quot;,
+14	      &quot;required&quot;: [&quot;categories&quot;, &quot;presetBudgets&quot;, &quot;defaultBudget&quot;, &quot;currency&quot;, &quot;currencySymbol&quot;],
+15	      &quot;additionalProperties&quot;: false,
+16	      &quot;properties&quot;: {
+17	
+18	        &quot;categories&quot;: {
+19	          &quot;description&quot;: &quot;List of budget categories available in the application.&quot;,
+20	          &quot;type&quot;: &quot;array&quot;,
+21	          &quot;items&quot;: {
+22	            &quot;title&quot;: &quot;BudgetCategory&quot;,
+23	            &quot;description&quot;: &quot;A single budget category definition.&quot;,
+24	            &quot;type&quot;: &quot;object&quot;,
+25	            &quot;required&quot;: [&quot;id&quot;, &quot;name&quot;, &quot;color&quot;, &quot;defaultPercent&quot;],
+26	            &quot;additionalProperties&quot;: false,
+27	            &quot;properties&quot;: {
+28	              &quot;id&quot;: {
+29	                &quot;description&quot;: &quot;Unique identifier for the category.&quot;,
+30	                &quot;type&quot;: &quot;string&quot;
+31	              },
+32	              &quot;name&quot;: {
+33	                &quot;description&quot;: &quot;Human-readable display name of the category.&quot;,
+34	                &quot;type&quot;: &quot;string&quot;
+35	              },
+36	              &quot;color&quot;: {
+37	                &quot;description&quot;: &quot;Display color as a 6-digit hex code (e.g. #3b82f6).&quot;,
+38	                &quot;type&quot;: &quot;string&quot;,
+39	                &quot;pattern&quot;: &quot;^#[0-9a-fA-F]{6}$&quot;
+40	              },
+41	              &quot;defaultPercent&quot;: {
+42	                &quot;description&quot;: &quot;Default allocation percentage for this category (0–100).&quot;,
+43	                &quot;type&quot;: &quot;number&quot;,
+44	                &quot;minimum&quot;: 0,
+45	                &quot;maximum&quot;: 100
+46	              }
+47	            }
+48	          }
+49	        },
+50	
+51	        &quot;presetBudgets&quot;: {
+52	          &quot;description&quot;: &quot;Preset total budget amounts available for quick selection.&quot;,
+53	          &quot;type&quot;: &quot;array&quot;,
+54	          &quot;items&quot;: {
+55	            &quot;description&quot;: &quot;A preset budget amount. Must be greater than zero.&quot;,
+56	            &quot;type&quot;: &quot;number&quot;,
+57	            &quot;exclusiveMinimum&quot;: 0
+58	          }
+59	        },
+60	
+61	        &quot;defaultBudget&quot;: {
+62	          &quot;description&quot;: &quot;Default total budget amount applied on initial load. Must be greater than zero.&quot;,
+63	          &quot;type&quot;: &quot;number&quot;,
+64	          &quot;exclusiveMinimum&quot;: 0
+65	        },
+66	        &quot;currency&quot;: {
+67	          &quot;description&quot;: &quot;ISO 4217 currency code (e.g. USD).&quot;,
+68	          &quot;type&quot;: &quot;string&quot;,
+69	          &quot;minLength&quot;: 3,
+70	          &quot;maxLength&quot;: 3
+71	        },
+72	        &quot;currencySymbol&quot;: {
+73	          &quot;description&quot;: &quot;Currency symbol used for display (e.g. $).&quot;,
+74	          &quot;type&quot;: &quot;string&quot;,
+75	          &quot;minLength&quot;: 1
+76	        }
+77	      }
+78	    },
+79	
+80	    &quot;analytics&quot;: {
+81	      &quot;title&quot;: &quot;BudgetAnalytics&quot;,
+82	      &quot;description&quot;: &quot;Historical and benchmark analyti...</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_prepare_budget_categories.sql&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	set define off
+2	
+3	insert into bas_budget_categories (id, name, color, default_percent, trend_per_month)
+4	values (&#x27;marketing&#x27;,   &#x27;Marketing&#x27;,   &#x27;#3b82f6&#x27;, 25, 0.15);
+5	
+6	insert into bas_budget_categories (id, name, color, default_percent, trend_per_month)
+7	values (&#x27;engineering&#x27;, &#x27;Engineering&#x27;, &#x27;#10b981&#x27;, 35, -0.1);
+8	
+9	insert into bas_budget_categories (id, name, color, default_percent, trend_per_month)
+10	values (&#x27;operations&#x27;,  &#x27;Operations&#x27;,  &#x27;#f59e0b&#x27;, 15, 0.05);
+11	
+12	insert into bas_budget_categories (id, name, color, default_percent, trend_per_month)
+13	values (&#x27;sales&#x27;,       &#x27;Sales&#x27;,       &#x27;#ef4444&#x27;, 15, 0.08);
+14	
+15	insert into bas_budget_categories (id, name, color, default_percent, trend_per_month)
+16	values (&#x27;rd&#x27;,          &#x27;R&amp;D&#x27;,         &#x27;#8b5cf6&#x27;, 10, -0.18);
+17	
+18	commit;
+19	
+20	set define on</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/budget-allocator-server/bas_generate_history.sql&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	-- ============================================================
+2	-- bas_generate_history
+3	-- Generate 24 months of historical allocation data
+4	-- Port of TypeScript generateHistory() with seededRandom(42)
+5	-- ============================================================
+6	create or replace procedure bas_generate_history
+7	as
+8	    -- ---------------------------------------------------------
+9	    -- Seeded LCG: seed = (seed * 1103515245 + 12345) &amp; 0x7fffffff
+10	    -- PL/SQL has no unsigned 32-bit, so use MOD 2^31 (= 2147483648)
+11	    -- to reproduce the JS bitwise &amp; 0x7fffffff behaviour.
+12	    -- ---------------------------------------------------------
+13	    v_seed          number := 42;
+14	    v_modulus       constant number := 2147483648; -- 0x80000000
+15	
+16	    -- Category row
+17	    type t_cat is record (
+18	        id              bas_budget_categories.id%type,
+19	        default_percent bas_budget_categories.default_percent%type,
+20	        trend_per_month bas_budget_categories.trend_per_month%type
+21	    );
+22	    type t_cat_tab is table of t_cat index by pls_integer;
+23	    v_cats          t_cat_tab;
+24	
+25	    -- Raw allocation accumulator per month
+26	    type t_alloc is table of number index by varchar2(100);
+27	    v_raw_alloc     t_alloc;
+28	
+29	    v_month_date    date;
+30	    v_month_str     varchar2(7);   -- &#x27;YYYY-MM&#x27;
+31	    v_month_id      bas_historical_months.id%type;
+32	    v_months_from_start number;
+33	    v_trend         number;
+34	    v_noise         number;
+35	    v_raw           number;
+36	    v_total         number;
+37	    v_cat_id        varchar2(100);
+38	    v_rnd           number;        -- value in [0, 1)
+39	
+40	    -- ---------------------------------------------------------
+41	    -- Inner function: advance seed and return value in [0, 1)
+42	    -- Matches JS: seed = (seed * 1103515245 + 12345) &amp; 0x7fffffff
+43	    --             return seed / 0x7fffffff
+44	    -- ---------------------------------------------------------
+45	    function seeded_random return number
+46	    as
+47	    begin
+48	        v_seed := mod(v_seed * 1103515245 + 12345, v_modulus);
+49	        return v_seed / 2147483647; -- 0x7fffffff
+50	    end seeded_random;
+51	
+52	begin
+53	    -- Load all categories once
+54	    select id, default_percent, nvl(trend_per_month, 0)
+55	    bulk collect into v_cats
+56	    from bas_budget_categories
+57	    order by id;
+58	
+59	    if v_cats.count = 0 then
+60	        raise_application_error(-20001, &#x27;bas_budget_categories is empty&#x27;);
+61	    end if;
+62	
+63	    -- Month loop: i = 23 downto 0  (24 months ending this month)
+64	    for i in reverse 0..23 loop
+65	
+66	        v_months_from_start := 23 - i;
+67	        v_month_date := add_months(trunc(sysdate, &#x27;MM&#x27;), -i);
+68	        v_month_str  := to_char(v_month_date, &#x27;YYYY-MM&#x27;);
+69	
+70	        -- Upsert into bas_historical_months
+71	        begin
+72	            insert into bas_historical_months (month)
+73	            values (v_month_str)
+74	            returning i...</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>Now I have a complete picture. Let me check tool registration for the output_schema handling.</p></div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Bash</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;command&quot;: &quot;ls /Users/********/Documents/mcp-app/examples/basic-server/ 2&gt;/dev/null &amp;&amp; echo \&quot;---\&quot; &amp;&amp; ls /Users/********/Documents/mcp-app/examples/&quot;,
+  &quot;description&quot;: &quot;List example servers&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>register-basic-servers.sql
+---
+basic-server
+budget-allocator-server</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Read</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/basic-server/register-basic-servers.sql&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:12</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>1	declare
+2	    /*  Tools */
+3	    type t_apps is table of varchar2(40);
+4	    l_apps t_apps := t_apps(
+5	        &#x27;get-time-preact&#x27;,
+6	        &#x27;get-time-react&#x27;,
+7	        &#x27;get-time-solid&#x27;,
+8	        &#x27;get-time-svelte&#x27;,
+9	        &#x27;get-time-vue&#x27;
+10	    );
+11	    l_app varchar2(40);
+12	    C_INPUT_SCHEMA constant json_object_t :=  json_object_t.parse(&#x27;{&quot;$schema&quot;:&quot;http://json-schema.org/draft-07/schema#&quot;,&quot;type&quot;:&quot;object&quot;}&#x27;);
+13	    C_OUTPUT_SCHEMA constant clob := q&#x27;~
+14	{
+15	  &quot;$schema&quot;: &quot;http://json-schema.org/draft-07/schema#&quot;,
+16	  &quot;type&quot;: &quot;object&quot;,
+17	  &quot;properties&quot;: {
+18	    &quot;time&quot;: {
+19	      &quot;type&quot;: &quot;string&quot;
+20	    }
+21	  }
+22	}    
+23	    ~&#x27;;
+24	    l_tool_id uc_ai_tools.id%type;
+25	    /* UI resources */
+26	    l_resource_id number;
+27	    l_update_user    varchar2(80);
+28	    l_update_time    timestamp;
+29	    C_DEFAULT_HTML constant clob := q&#x27;~&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;~&#x27;;
+30	begin
+31	    l_update_user := sys_context(&#x27;USERENV&#x27;, &#x27;CURRENT_USER&#x27;);
+32	    l_update_time := current_timestamp;
+33	    for i in 1..l_apps.count
+34	    loop
+35	        l_app := l_apps(i);
+36	        /* delete and create tool */
+37	        delete from uc_ai_tools where code = l_app;
+38	        l_tool_id := uc_ai_tools_api.create_tool_from_schema(
+39	            p_tool_code =&gt; l_app,
+40	            p_description =&gt; &#x27;Returns the current server time as an ISO 8601 string.&#x27;,
+41	            p_function_call =&gt; q&#x27;~return get_time();~&#x27;,
+42	            p_json_schema =&gt; C_INPUT_SCHEMA,
+43	            p_tags =&gt; apex_t_varchar2(&#x27;ext-apps&#x27;)
+44	        );
+45	        /* create default UI resource, text should be updated later */
+46	        merge into oj_mcp_ui_resources t
+47	        using (
+48	            select
+49	                l_app                                name,
+50	                &#x27;ui://&#x27; || l_app || &#x27;/mcp-app.html&#x27;  uri,
+51	                &#x27;text/html;profile=mcp-app&#x27;          mime_type,
+52	                &#x27;Returns the current server time as an ISO 8601 string.&#x27; description,
+53	                C_DEFAULT_HTML                       text
+54	            from dual
+55	        ) s
+56	        on (t.name = s.name)
+57	        when matched then
+58	            update set
+59	                t.uri         = s.uri,
+60	                t.mime_type   = s.mime_type,
+61	                t.description = s.description,
+62	                t.text        = case when t.text is null then s.text else t.text end,
+63	                t.updated_by  = l_update_user,
+64	                t.updated_at  = l_update_time
+65	        when not matched then
+66	            insert (name, uri, mime_type, description, text, created_by, created_at, updated_by, updated_at)
+67	            values (s.name, s.uri, s.mime_type, s.description, s.text, l_update_user, l_update_time, l_update_user, l_update_time)
+68	        ;
+69	        /* register ui resource to the tool */
+70	        select id into l_tool_id from uc_ai_tools where code = l_app;
+71	        select id into l_resource_id from oj_mcp_ui_resources where n...</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:13</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:13</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>理解しました。<code class="inline-code">budget-allocator-server</code> のパターンに完全に倣って、<code class="inline-code">cohort-heatmap-server</code> をOracle向けに変換します。</p>
+<p>ディレクトリを作成し、各ファイルを書き出します。</p></div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:13</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Bash</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;command&quot;: &quot;mkdir -p /Users/********/Documents/mcp-app/examples/cohort-heatmap-server &amp;&amp; ls /Users/********/Documents/mcp-app/examples/&quot;,
+  &quot;description&quot;: &quot;Create cohort-heatmap-server directory&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:13</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>basic-server
+budget-allocator-server
+cohort-heatmap-server</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:14</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_create_tables.sql&quot;,
+  &quot;content&quot;: &quot;-- ============================================================\n-- Cohort Heatmap Application Table Definitions for Oracle Database\n-- Port of cohort-heatmap-server/server.ts (Zod schemas)\n-- ============================================================\n\n-- ------------------------------------------------------------\n-- 1. chs_metric_params\n--    Internal RetentionParams keyed by metric name\n--    (paramsMap in TypeScript: retention / revenue / active)\n-- ------------------------------------------------------------\ncreate table chs_metric_params (\n    metric           varchar2(20)    not null,\n    base_retention   number(10, 4)   not null,\n    decay_rate       number(10, 4)   not null,\n    floor_value      number(10, 4)   not null,\n    noise            number(10, 4)   not null,\n    constraint chs_pk_metric_params primary key (metric),\n    constraint chs_ck_metric_name\n        check (metric in (&#x27;retention&#x27;, &#x27;revenue&#x27;, &#x27;active&#x27;))\n);\n\n-- ------------------------------------------------------------\n-- 2. chs_dataset_meta\n--    CohortDataSchema scalar fields: metric, periodType, generatedAt\n-- ------------------------------------------------------------\ncreate table chs_dataset_meta (\n    id               number          generated always as identity,\n    metric           varchar2(20)    not null,\n    period_type      varchar2(20)    not null,\n    generated_at     timestamp       default systimestamp not null,\n    constraint chs_pk_dataset_meta primary key (id),\n    constraint chs_fk_meta_metric foreign key (metric)\n        references chs_metric_params (metric),\n    constraint chs_ck_period_type\n        check (period_type in (&#x27;monthly&#x27;, &#x27;weekly&#x27;))\n);\n\n-- ------------------------------------------------------------\n-- 3. chs_periods\n--    CohortDataSchema.periods[] / CohortDataSchema.periodLabels[]\n-- ------------------------------------------------------------\ncreate table chs_periods (\n    period_index     number          not null,\n    period_code      varchar2(10)    not null,\n    period_label     varchar2(50)    not null,\n    constraint chs_pk_periods primary key (period_index)\n);\n\n-- ------------------------------------------------------------\n-- 4. chs_cohorts\n--    CohortRowSchema (parent): cohortId, cohortLabel, originalUsers\n-- ------------------------------------------------------------\ncreate table chs_cohorts (\n    cohort_index     number          not null,\n    cohort_id        varchar2(20)    not null,\n    cohort_label     varchar2(50)    not null,\n    original_users   number          not null,\n    constraint chs_pk_cohorts primary key (cohort_index)\n);\n\n-- ------------------------------------------------------------\n-- 5. chs_cohort_cells\n--    CohortRowSchema.cells[] = CohortCellSchema\n-- ------------------------------------------------------------\ncreate table chs_cohort_cells (\n    cohort_index     number          not null,\n    period_index     number          not null,\n    retention        number(10, 6)   not null,\n    users_retained   number          not null,\n    users_original   number          not null,\n    constraint chs_pk_cohort_cells primary key (cohort_index, period_index),\n    constraint chs_fk_cells_cohort foreign key (cohort_index)\n        references chs_cohorts (cohort_index) on delete cascade\n);\n\n-- ============================================================\n-- Comments\n-- ============================================================\ncomment on table chs_metric_params   is &#x27;RetentionParams per metric (paramsMap)&#x27;;\ncomment on table chs_dataset_meta    is &#x27;CohortDataSchema scalar fields&#x27;;\ncomment on table chs_periods         is &#x27;CohortDataSchema.periods[] / periodLabels[]&#x27;;\ncomment on table chs_cohorts         is &#x27;CohortRowSchema parent&#x27;;\ncomment on table chs_cohort_cells    is &#x27;CohortRowSchema.cells[] = CohortCellSchema&#x27;;\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:14</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_create_tables.sql</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:14</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_prepare_metric_params.sql&quot;,
+  &quot;content&quot;: &quot;set define off\n\n-- Mirror of TypeScript paramsMap in generateCohortData()\ninsert into chs_metric_params (metric, base_retention, decay_rate, floor_value, noise)\nvalues (&#x27;retention&#x27;, 0.75, 0.12, 0.08, 0.04);\n\ninsert into chs_metric_params (metric, base_retention, decay_rate, floor_value, noise)\nvalues (&#x27;revenue&#x27;,   0.70, 0.10, 0.15, 0.06);\n\ninsert into chs_metric_params (metric, base_retention, decay_rate, floor_value, noise)\nvalues (&#x27;active&#x27;,    0.60, 0.18, 0.05, 0.05);\n\ncommit;\n\nset define on\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:14</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_prepare_metric_params.sql</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:14</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_generate_cohort_data.sql&quot;,
+  &quot;content&quot;: &quot;-- ============================================================\n-- chs_generate_cohort_data\n-- Port of TypeScript generateCohortData() / generateRetention()\n-- Uses seeded LCG (seed = 42) for deterministic output, matching\n-- the bas_generate_history convention.\n-- ============================================================\ncreate or replace procedure chs_generate_cohort_data(\n    p_metric        in varchar2 default &#x27;retention&#x27;,\n    p_period_type   in varchar2 default &#x27;monthly&#x27;,\n    p_cohort_count  in number   default 12,\n    p_max_periods   in number   default 12\n)\nas\n    -- ---------------------------------------------------------\n    -- Seeded LCG (matches bas_generate_history)\n    -- seed = (seed * 1103515245 + 12345) mod 2^31\n    -- ---------------------------------------------------------\n    v_seed       number := 42;\n    v_modulus    constant number := 2147483648; -- 0x80000000\n\n    -- RetentionParams loaded from chs_metric_params\n    v_base_ret   chs_metric_params.base_retention%type;\n    v_decay      chs_metric_params.decay_rate%type;\n    v_floor      chs_metric_params.floor_value%type;\n    v_noise_p    chs_metric_params.noise%type;\n\n    -- Loop locals\n    v_cohort_date    date;\n    v_cohort_id      varchar2(20);\n    v_cohort_label   varchar2(50);\n    v_original       number;\n    v_periods_avail  number;\n    v_p_max          number;\n    v_retention      number;\n    v_prev_ret       number;\n    v_base           number;\n    v_variation      number;\n    v_rnd            number;\n\n    -- ---------------------------------------------------------\n    -- Inner: advance seed and return value in [0, 1)\n    -- ---------------------------------------------------------\n    function seeded_random return number\n    as\n    begin\n        v_seed := mod(v_seed * 1103515245 + 12345, v_modulus);\n        return v_seed / 2147483647; -- 0x7fffffff\n    end seeded_random;\n\nbegin\n    -- Load metric params (raises NO_DATA_FOUND if metric is unknown)\n    select base_retention, decay_rate, floor_value, noise\n    into   v_base_ret, v_decay, v_floor, v_noise_p\n    from   chs_metric_params\n    where  metric = p_metric;\n\n    -- Idempotent reset (cells deleted via FK cascade)\n    delete from chs_cohorts;\n    delete from chs_periods;\n    delete from chs_dataset_meta;\n\n    -- Insert dataset meta\n    insert into chs_dataset_meta (metric, period_type)\n    values (p_metric, p_period_type);\n\n    -- ============================================================\n    -- Period headers: M0..M(maxPeriods-1) / \&quot;Month 0\&quot;..\&quot;Month N\&quot;\n    -- ============================================================\n    for p in 0 .. p_max_periods - 1 loop\n        insert into chs_periods (period_index, period_code, period_label)\n        values (\n            p,\n            &#x27;M&#x27; || p,\n            case when p = 0 then &#x27;Month 0&#x27; else &#x27;Month &#x27; || p end\n        );\n    end loop;\n\n    -- ============================================================\n    -- Cohorts (oldest first)\n    -- ============================================================\n    for c in 0 .. p_cohort_count - 1 loop\n\n        v_cohort_date  := add_months(trunc(sysdate, &#x27;MM&#x27;), -(p_cohort_count - 1 - c));\n        v_cohort_id    := to_char(v_cohort_date, &#x27;YYYY-MM&#x27;);\n        v_cohort_label := to_char(\n                              v_cohort_date,\n                              &#x27;Mon YYYY&#x27;,\n                              &#x27;NLS_DATE_LANGUAGE=AMERICAN&#x27;\n                          );\n\n        -- originalUsers = floor(1000 + random * 4000)\n        v_rnd      := seeded_random();\n        v_original := floor(1000 + v_rnd * 4000);\n\n        insert into chs_cohorts (cohort_index, cohort_id, cohort_label, original_users)\n        values (c, v_cohort_id, v_cohort_label, v_original);\n\n        -- Newer cohorts have fewer periods\n        v_periods_avail := p_cohort_count - c;\n        v_p_max         := least(v_periods_avail, p_max_periods);\n        v_prev_ret      := 1.0;\n\n        for p in 0 .. v_p_max - 1 loop\n            -- generateRetention(): period 0 always returns 1.0\n            if p = 0 then\n                v_retention := 1.0;\n            else\n                v_rnd       := seeded_random();\n                v_base      := v_base_ret * exp(-v_decay * (p - 1)) + v_floor;\n                v_variation := (v_rnd - 0.5) * 2 * v_noise_p;\n                v_retention := greatest(0, least(1, v_base + v_variation));\n            end if;\n\n            -- Retention must not jump above previous + 0.02\n            v_retention := least(v_retention, v_prev_ret + 0.02);\n            v_prev_ret  := v_retention;\n\n            insert into chs_cohort_cells\n                (cohort_index, period_index, retention, users_retained, users_original)\n            values (\n                c,\n                p,\n                v_retention,\n                round(v_original * v_retention),\n                v_original\n            );\n        end loop;\n\n    end loop;\n\n    commit;\nend chs_generate_cohort_data;\n/\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:14</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_generate_cohort_data.sql</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_get_cohort_data_response.sql&quot;,
+  &quot;content&quot;: &quot;create or replace function chs_get_cohort_data_response\n    return clob\nas\n    -- root\n    l_root           json_object_t := json_object_t();\n\n    -- cohorts[]\n    l_cohorts        json_array_t  := json_array_t();\n    l_cohort_obj     json_object_t;\n    l_cells          json_array_t;\n    l_cell           json_object_t;\n\n    -- periods[] / periodLabels[]\n    l_periods        json_array_t  := json_array_t();\n    l_period_labels  json_array_t  := json_array_t();\n\n    -- meta\n    l_metric         chs_dataset_meta.metric%type;\n    l_period_type    chs_dataset_meta.period_type%type;\n    l_generated_at   chs_dataset_meta.generated_at%type;\nbegin\n    -- ============================================================\n    -- meta: metric / periodType / generatedAt\n    -- ============================================================\n    select metric, period_type, generated_at\n    into   l_metric, l_period_type, l_generated_at\n    from   chs_dataset_meta\n    fetch first 1 rows only;\n\n    -- ============================================================\n    -- periods[] and periodLabels[]\n    -- ============================================================\n    for r in (\n        select period_code, period_label\n        from   chs_periods\n        order  by period_index\n    ) loop\n        l_periods.append(r.period_code);\n        l_period_labels.append(r.period_label);\n    end loop;\n\n    -- ============================================================\n    -- cohorts[] (with nested cells[])\n    -- ============================================================\n    for ch in (\n        select cohort_index, cohort_id, cohort_label, original_users\n        from   chs_cohorts\n        order  by cohort_index\n    ) loop\n        l_cohort_obj := json_object_t();\n        l_cells      := json_array_t();\n\n        for cell in (\n            select cohort_index, period_index, retention,\n                   users_retained, users_original\n            from   chs_cohort_cells\n            where  cohort_index = ch.cohort_index\n            order  by period_index\n        ) loop\n            l_cell := json_object_t();\n            l_cell.put(&#x27;cohortIndex&#x27;,   cell.cohort_index);\n            l_cell.put(&#x27;periodIndex&#x27;,   cell.period_index);\n            l_cell.put(&#x27;retention&#x27;,     cell.retention);\n            l_cell.put(&#x27;usersRetained&#x27;, cell.users_retained);\n            l_cell.put(&#x27;usersOriginal&#x27;, cell.users_original);\n            l_cells.append(l_cell);\n        end loop;\n\n        l_cohort_obj.put(&#x27;cohortId&#x27;,      ch.cohort_id);\n        l_cohort_obj.put(&#x27;cohortLabel&#x27;,   ch.cohort_label);\n        l_cohort_obj.put(&#x27;originalUsers&#x27;, ch.original_users);\n        l_cohort_obj.put(&#x27;cells&#x27;,         l_cells);\n        l_cohorts.append(l_cohort_obj);\n    end loop;\n\n    -- ============================================================\n    -- CohortDataSchema (root)\n    -- ============================================================\n    l_root.put(&#x27;cohorts&#x27;,      l_cohorts);\n    l_root.put(&#x27;periods&#x27;,      l_periods);\n    l_root.put(&#x27;periodLabels&#x27;, l_period_labels);\n    l_root.put(&#x27;metric&#x27;,       l_metric);\n    l_root.put(&#x27;periodType&#x27;,   l_period_type);\n    l_root.put(\n        &#x27;generatedAt&#x27;,\n        to_char(\n            l_generated_at at time zone &#x27;UTC&#x27;,\n            &#x27;YYYY-MM-DD\&quot;T\&quot;HH24:MI:SS.FF3\&quot;Z\&quot;&#x27;\n        )\n    );\n\n    return l_root.to_clob();\nend chs_get_cohort_data_response;\n/\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_get_cohort_data_response.sql</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/output_schema.json&quot;,
+  &quot;content&quot;: &quot;{\n  \&quot;$schema\&quot;: \&quot;https://json-schema.org/draft/2020-12/schema\&quot;,\n  \&quot;$id\&quot;: \&quot;chs_cohort_data_response.schema.json\&quot;,\n  \&quot;title\&quot;: \&quot;CohortData\&quot;,\n  \&quot;description\&quot;: \&quot;Cohort retention heatmap dataset.\&quot;,\n  \&quot;type\&quot;: \&quot;object\&quot;,\n  \&quot;required\&quot;: [\&quot;cohorts\&quot;, \&quot;periods\&quot;, \&quot;periodLabels\&quot;, \&quot;metric\&quot;, \&quot;periodType\&quot;, \&quot;generatedAt\&quot;],\n  \&quot;additionalProperties\&quot;: false,\n  \&quot;properties\&quot;: {\n\n    \&quot;cohorts\&quot;: {\n      \&quot;description\&quot;: \&quot;Per-cohort retention rows ordered oldest first.\&quot;,\n      \&quot;type\&quot;: \&quot;array\&quot;,\n      \&quot;items\&quot;: {\n        \&quot;title\&quot;: \&quot;CohortRow\&quot;,\n        \&quot;description\&quot;: \&quot;A single cohort row with its retention cells.\&quot;,\n        \&quot;type\&quot;: \&quot;object\&quot;,\n        \&quot;required\&quot;: [\&quot;cohortId\&quot;, \&quot;cohortLabel\&quot;, \&quot;originalUsers\&quot;, \&quot;cells\&quot;],\n        \&quot;additionalProperties\&quot;: false,\n        \&quot;properties\&quot;: {\n          \&quot;cohortId\&quot;: {\n            \&quot;description\&quot;: \&quot;Cohort identifier in YYYY-MM format.\&quot;,\n            \&quot;type\&quot;: \&quot;string\&quot;,\n            \&quot;pattern\&quot;: \&quot;^[0-9]{4}-(0[1-9]|1[0-2])$\&quot;\n          },\n          \&quot;cohortLabel\&quot;: {\n            \&quot;description\&quot;: \&quot;Human-readable cohort label (e.g. &#x27;Jan 2026&#x27;).\&quot;,\n            \&quot;type\&quot;: \&quot;string\&quot;\n          },\n          \&quot;originalUsers\&quot;: {\n            \&quot;description\&quot;: \&quot;Number of users in the cohort at period 0.\&quot;,\n            \&quot;type\&quot;: \&quot;number\&quot;,\n            \&quot;minimum\&quot;: 0\n          },\n          \&quot;cells\&quot;: {\n            \&quot;description\&quot;: \&quot;Retention cells for this cohort, ordered by periodIndex ascending.\&quot;,\n            \&quot;type\&quot;: \&quot;array\&quot;,\n            \&quot;items\&quot;: {\n              \&quot;title\&quot;: \&quot;CohortCell\&quot;,\n              \&quot;description\&quot;: \&quot;Retention measurement for one cohort/period intersection.\&quot;,\n              \&quot;type\&quot;: \&quot;object\&quot;,\n              \&quot;required\&quot;: [\n                \&quot;cohortIndex\&quot;,\n                \&quot;periodIndex\&quot;,\n                \&quot;retention\&quot;,\n                \&quot;usersRetained\&quot;,\n                \&quot;usersOriginal\&quot;\n              ],\n              \&quot;additionalProperties\&quot;: false,\n              \&quot;properties\&quot;: {\n                \&quot;cohortIndex\&quot;: {\n                  \&quot;description\&quot;: \&quot;Zero-based row index of the cohort.\&quot;,\n                  \&quot;type\&quot;: \&quot;number\&quot;,\n                  \&quot;minimum\&quot;: 0\n                },\n                \&quot;periodIndex\&quot;: {\n                  \&quot;description\&quot;: \&quot;Zero-based column index of the period (0 = signup period).\&quot;,\n                  \&quot;type\&quot;: \&quot;number\&quot;,\n                  \&quot;minimum\&quot;: 0\n                },\n                \&quot;retention\&quot;: {\n                  \&quot;description\&quot;: \&quot;Retention rate in [0, 1].\&quot;,\n                  \&quot;type\&quot;: \&quot;number\&quot;,\n                  \&quot;minimum\&quot;: 0,\n                  \&quot;maximum\&quot;: 1\n                },\n                \&quot;usersRetained\&quot;: {\n                  \&quot;description\&quot;: \&quot;Number of users still active in this period.\&quot;,\n                  \&quot;type\&quot;: \&quot;number\&quot;,\n                  \&quot;minimum\&quot;: 0\n                },\n                \&quot;usersOriginal\&quot;: {\n                  \&quot;description\&quot;: \&quot;Original cohort size (constant across cells of the same cohort).\&quot;,\n                  \&quot;type\&quot;: \&quot;number\&quot;,\n                  \&quot;minimum\&quot;: 0\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n\n    \&quot;periods\&quot;: {\n      \&quot;description\&quot;: \&quot;Period column codes (e.g. &#x27;M0&#x27;, &#x27;M1&#x27;, ...).\&quot;,\n      \&quot;type\&quot;: \&quot;array\&quot;,\n      \&quot;items\&quot;: {\n        \&quot;type\&quot;: \&quot;string\&quot;\n      }\n    },\n\n    \&quot;periodLabels\&quot;: {\n      \&quot;description\&quot;: \&quot;Human-readable period labels (e.g. &#x27;Month 0&#x27;, &#x27;Month 1&#x27;, ...).\&quot;,\n      \&quot;type\&quot;: \&quot;array\&quot;,\n      \&quot;items\&quot;: {\n        \&quot;type\&quot;: \&quot;string\&quot;\n      }\n    },\n\n    \&quot;metric\&quot;: {\n      \&quot;description\&quot;: \&quot;Retention metric this dataset was generated for.\&quot;,\n      \&quot;type\&quot;: \&quot;string\&quot;,\n      \&quot;enum\&quot;: [\&quot;retention\&quot;, \&quot;revenue\&quot;, \&quot;active\&quot;]\n    },\n\n    \&quot;periodType\&quot;: {\n      \&quot;description\&quot;: \&quot;Period granularity used to build the cohorts.\&quot;,\n      \&quot;type\&quot;: \&quot;string\&quot;,\n      \&quot;enum\&quot;: [\&quot;monthly\&quot;, \&quot;weekly\&quot;]\n    },\n\n    \&quot;generatedAt\&quot;: {\n      \&quot;description\&quot;: \&quot;ISO 8601 UTC timestamp when the dataset was generated.\&quot;,\n      \&quot;type\&quot;: \&quot;string\&quot;,\n      \&quot;format\&quot;: \&quot;date-time\&quot;\n    }\n  }\n}\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/output_schema.json</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_install.sql&quot;,
+  &quot;content&quot;: &quot;set serveroutput on\n-- create tables\n@@chs_create_tables.sql\n-- procedure to generate sample data.\n@@chs_generate_cohort_data.sql\n-- function to generate the response for tools call.\n@@chs_get_cohort_data_response.sql\n-- insert configuration data (RetentionParams per metric)\n@@chs_prepare_metric_params.sql\n--\nbegin\n    chs_generate_cohort_data;\nend;\n/\ncommit;\n-- generate tools call response\nbegin\n    dbms_output.put_line(chs_get_cohort_data_response);\nend;\n/\nexit;\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_install.sql</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_drop_all.sql&quot;,
+  &quot;content&quot;: &quot;-- ============================================================\n-- Drop all cohort-heatmap-server objects\n-- ============================================================\ndrop function chs_get_cohort_data_response;\ndrop procedure chs_generate_cohort_data;\n\ndrop table chs_cohort_cells   cascade constraints purge;\ndrop table chs_cohorts        cascade constraints purge;\ndrop table chs_periods        cascade constraints purge;\ndrop table chs_dataset_meta   cascade constraints purge;\ndrop table chs_metric_params  cascade constraints purge;\nexit;\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_drop_all.sql</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Bash</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;command&quot;: &quot;ls -la /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/&quot;,
+  &quot;description&quot;: &quot;Verify created files&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:15</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>total 64
+drwxr-xr-x@ 9 ********  staff   288 Apr 17 10:15 .
+drwxr-xr-x  5 ********  staff   160 Apr 17 10:13 ..
+-rw-r--r--@ 1 ********  staff  3815 Apr 17 10:14 chs_create_tables.sql
+-rw-r--r--@ 1 ********  staff   547 Apr 17 10:15 chs_drop_all.sql
+-rw-r--r--@ 1 ********  staff  4943 Apr 17 10:14 chs_generate_cohort_data.sql
+-rw-r--r--@ 1 ********  staff  3365 Apr 17 10:15 chs_get_cohort_data_response.sql
+-rw-r--r--@ 1 ********  staff   469 Apr 17 10:15 chs_install.sql
+-rw-r--r--@ 1 ********  staff   499 Apr 17 10:14 chs_prepare_metric_params.sql
+-rw-r--r--@ 1 ********  staff  3813 Apr 17 10:15 output_schema.json</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:16</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><code class="inline-code">budget-allocator-server</code> のパターンに合わせて、<code class="inline-code">cohort-heatmap-server</code> のOracle版を作成しました（プレフィックスは <code class="inline-code">chs_</code>）。
+<h2>変換マッピング</h2>
+<p>| TypeScript (server.ts) | Oracle (chs_*) |<br>|---|---|<br>| <code class="inline-code">paramsMap</code> (RetentionParams) | テーブル [chs_metric_params](examples/cohort-heatmap-server/chs_create_tables.sql) |<br>| <code class="inline-code">CohortDataSchema</code> のスカラ (metric/periodType/generatedAt) | テーブル <code class="inline-code">chs_dataset_meta</code> |<br>| <code class="inline-code">periods[]</code> / <code class="inline-code">periodLabels[]</code> | テーブル <code class="inline-code">chs_periods</code> |<br>| <code class="inline-code">CohortRowSchema</code> (親) | テーブル <code class="inline-code">chs_cohorts</code> |<br>| <code class="inline-code">CohortRowSchema.cells[]</code> (CohortCellSchema) | テーブル <code class="inline-code">chs_cohort_cells</code> (FK cascade) |<br>| <code class="inline-code">generateCohortData()</code> / <code class="inline-code">generateRetention()</code> | プロシージャ [chs_generate_cohort_data](examples/cohort-heatmap-server/chs_generate_cohort_data.sql) (シード付きLCG) |<br>| ツールハンドラの戻り (<code class="inline-code">structuredContent</code>) | ファンクション [chs_get_cohort_data_response](examples/cohort-heatmap-server/chs_get_cohort_data_response.sql) → <code class="inline-code">CLOB</code> |<br>| <code class="inline-code">CohortDataSchema</code> (Zod) | [output_schema.json](examples/cohort-heatmap-server/output_schema.json) (JSON Schema 2020-12) |</p>
+<h2>作成ファイル</h2>
+<ul><li>[chs_create_tables.sql](examples/cohort-heatmap-server/chs_create_tables.sql) — 5テーブル</li><li>[chs_prepare_metric_params.sql](examples/cohort-heatmap-server/chs_prepare_metric_params.sql) — 3メトリクスのINSERT</li><li>[chs_generate_cohort_data.sql](examples/cohort-heatmap-server/chs_generate_cohort_data.sql) — シード付きLCG（seed=42）でJSの &lt;code class=&quot;inline-code&quot;&gt;Math.random&lt;/code&gt; を再現</li><li>[chs_get_cohort_data_response.sql](examples/cohort-heatmap-server/chs_get_cohort_data_response.sql) — &lt;code class=&quot;inline-code&quot;&gt;JSON_OBJECT_T&lt;/code&gt;/&lt;code class=&quot;inline-code&quot;&gt;JSON_ARRAY_T&lt;/code&gt; でCLOB組み立て</li><li>[output_schema.json](examples/cohort-heatmap-server/output_schema.json)</li><li>[chs_install.sql](examples/cohort-heatmap-server/chs_install.sql) — &lt;code class=&quot;inline-code&quot;&gt;bas_install.sql&lt;/code&gt; と同形式</li><li>[chs_drop_all.sql](examples/cohort-heatmap-server/chs_drop_all.sql)</li></ul>
+<h2>注意点</h2>
+<ol><li>1. &lt;code class=&quot;inline-code&quot;&gt;bas_*&lt;/code&gt; と同様、ツール関数は引数を受け取らない設計のため、入力スキーマ (&lt;code class=&quot;inline-code&quot;&gt;metric&lt;/code&gt;/&lt;code class=&quot;inline-code&quot;&gt;periodType&lt;/code&gt;/&lt;code class=&quot;inline-code&quot;&gt;cohortCount&lt;/code&gt;/&lt;code class=&quot;inline-code&quot;&gt;maxPeriods&lt;/code&gt;) はプロシージャ &lt;code class=&quot;inline-code&quot;&gt;chs_generate_cohort_data&lt;/code&gt; のデフォルト値で表現しています。インストール時は &lt;code class=&quot;inline-code&quot;&gt;retention/monthly/12/12&lt;/code&gt; で生成。</li><li>2. ツール登録 (&lt;code class=&quot;inline-code&quot;&gt;uc_ai_tools_api.create_tool_from_schema&lt;/code&gt; + &lt;code class=&quot;inline-code&quot;&gt;oj_mcp_tools_extras&lt;/code&gt; に &lt;code class=&quot;inline-code&quot;&gt;output_schema&lt;/code&gt; をセット) は &lt;code class=&quot;inline-code&quot;&gt;examples/basic-server/register-basic-servers.sql&lt;/code&gt; のパターンに倣って別途追加が必要です。必要であれば続けて作成します。</li></ol></div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:22</span>
+  </div>
+  <div class="turn-body">
+    <p>server.tsの以下の定義をJSON Schemaの定義に変換して。<br>// Schemas - types are derived from these using z.infer<br>const GetCohortDataInputSchema = z.object({<br>  metric: z<br>    .enum(["retention", "revenue", "active"])<br>    .optional()<br>    .default("retention"),<br>  periodType: z.enum(["monthly", "weekly"]).optional().default("monthly"),<br>  cohortCount: z.number().min(3).max(24).optional().default(12),<br>  maxPeriods: z.number().min(3).max(24).optional().default(12),<br>});</p>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:22</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:22</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><code class="inline-code">GetCohortDataInputSchema</code> をJSON Schema (draft-07、<code class="inline-code">basic-server</code> の入力スキーマ形式に準拠) に変換しました。<code class="inline-code">output_schema.json</code> と並べて保存します。</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:22</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/input_schema.json&quot;,
+  &quot;content&quot;: &quot;{\n  \&quot;$schema\&quot;: \&quot;http://json-schema.org/draft-07/schema#\&quot;,\n  \&quot;$id\&quot;: \&quot;chs_get_cohort_data_input.schema.json\&quot;,\n  \&quot;title\&quot;: \&quot;GetCohortDataInput\&quot;,\n  \&quot;description\&quot;: \&quot;Input parameters for the get-cohort-data tool.\&quot;,\n  \&quot;type\&quot;: \&quot;object\&quot;,\n  \&quot;additionalProperties\&quot;: false,\n  \&quot;properties\&quot;: {\n    \&quot;metric\&quot;: {\n      \&quot;description\&quot;: \&quot;Retention metric to compute.\&quot;,\n      \&quot;type\&quot;: \&quot;string\&quot;,\n      \&quot;enum\&quot;: [\&quot;retention\&quot;, \&quot;revenue\&quot;, \&quot;active\&quot;],\n      \&quot;default\&quot;: \&quot;retention\&quot;\n    },\n    \&quot;periodType\&quot;: {\n      \&quot;description\&quot;: \&quot;Period granularity used to build the cohorts.\&quot;,\n      \&quot;type\&quot;: \&quot;string\&quot;,\n      \&quot;enum\&quot;: [\&quot;monthly\&quot;, \&quot;weekly\&quot;],\n      \&quot;default\&quot;: \&quot;monthly\&quot;\n    },\n    \&quot;cohortCount\&quot;: {\n      \&quot;description\&quot;: \&quot;Number of cohorts to generate.\&quot;,\n      \&quot;type\&quot;: \&quot;number\&quot;,\n      \&quot;minimum\&quot;: 3,\n      \&quot;maximum\&quot;: 24,\n      \&quot;default\&quot;: 12\n    },\n    \&quot;maxPeriods\&quot;: {\n      \&quot;description\&quot;: \&quot;Maximum number of periods (columns) per cohort.\&quot;,\n      \&quot;type\&quot;: \&quot;number\&quot;,\n      \&quot;minimum\&quot;: 3,\n      \&quot;maximum\&quot;: 24,\n      \&quot;default\&quot;: 12\n    }\n  }\n}\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:22</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>File created successfully at: /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/input_schema.json</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:22</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>保存しました: [input_schema.json](examples/cohort-heatmap-server/input_schema.json)</p>
+<h2>変換マッピング</h2>
+<p>| Zod | JSON Schema |<br>|---|---|<br>| <code class="inline-code">z.enum([...])</code> | <code class="inline-code">&quot;type&quot;: &quot;string&quot;</code> + <code class="inline-code">&quot;enum&quot;: [...]</code> |<br>| <code class="inline-code">.optional().default(x)</code> | <code class="inline-code">required</code> から外し <code class="inline-code">&quot;default&quot;: x</code> を付与 |<br>| <code class="inline-code">z.number().min(a).max(b)</code> | <code class="inline-code">&quot;type&quot;: &quot;number&quot;</code> + <code class="inline-code">&quot;minimum&quot;: a</code> + <code class="inline-code">&quot;maximum&quot;: b</code> |<br>| <code class="inline-code">z.object({...})</code> (strict) | <code class="inline-code">&quot;type&quot;: &quot;object&quot;</code> + <code class="inline-code">&quot;additionalProperties&quot;: false</code> |</p>
+<p>全フィールドが <code class="inline-code">.optional().default(...)</code> のため <code class="inline-code">required</code> 配列はありません。</p></div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:24</span>
+  </div>
+  <div class="turn-body">
+    <p>PL/SQLファンクションchs_get_cohort_data_responseは、CLOB型の引数p_parametersを持ち、input_schema.jsonで定義されるJSONドキュメントを受け付けるように改変して。</p>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:25</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:25</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><code class="inline-code">chs_get_cohort_data_response</code> を <code class="inline-code">p_parameters CLOB</code> を受け取るように改変します。入力JSONをパースし、デフォルト値を適用し、検証してから <code class="inline-code">chs_generate_cohort_data</code> を呼んで再生成、その後JSONを返します。</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:25</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_get_cohort_data_response.sql&quot;,
+  &quot;content&quot;: &quot;create or replace function chs_get_cohort_data_response(\n    p_parameters in clob default null\n) return clob\nas\n    -- ---------------------------------------------------------\n    -- Parsed inputs (defaults mirror input_schema.json)\n    -- ---------------------------------------------------------\n    l_params         json_object_t;\n    l_metric         varchar2(20)  := &#x27;retention&#x27;;\n    l_period_type    varchar2(20)  := &#x27;monthly&#x27;;\n    l_cohort_count   number        := 12;\n    l_max_periods    number        := 12;\n\n    -- root\n    l_root           json_object_t := json_object_t();\n\n    -- cohorts[]\n    l_cohorts        json_array_t  := json_array_t();\n    l_cohort_obj     json_object_t;\n    l_cells          json_array_t;\n    l_cell           json_object_t;\n\n    -- periods[] / periodLabels[]\n    l_periods        json_array_t  := json_array_t();\n    l_period_labels  json_array_t  := json_array_t();\n\n    -- meta\n    l_meta_metric    chs_dataset_meta.metric%type;\n    l_meta_period    chs_dataset_meta.period_type%type;\n    l_generated_at   chs_dataset_meta.generated_at%type;\nbegin\n    -- ============================================================\n    -- Parse p_parameters per input_schema.json\n    -- (GetCohortDataInput: metric / periodType / cohortCount / maxPeriods)\n    -- All fields are optional; missing fields fall back to defaults.\n    -- ============================================================\n    if p_parameters is not null and dbms_lob.getlength(p_parameters) &gt; 0 then\n        l_params := json_object_t.parse(p_parameters);\n\n        if l_params.has(&#x27;metric&#x27;) then\n            l_metric := l_params.get_string(&#x27;metric&#x27;);\n        end if;\n        if l_params.has(&#x27;periodType&#x27;) then\n            l_period_type := l_params.get_string(&#x27;periodType&#x27;);\n        end if;\n        if l_params.has(&#x27;cohortCount&#x27;) then\n            l_cohort_count := l_params.get_number(&#x27;cohortCount&#x27;);\n        end if;\n        if l_params.has(&#x27;maxPeriods&#x27;) then\n            l_max_periods := l_params.get_number(&#x27;maxPeriods&#x27;);\n        end if;\n    end if;\n\n    -- ============================================================\n    -- Validate against input_schema constraints\n    -- ============================================================\n    if l_metric not in (&#x27;retention&#x27;, &#x27;revenue&#x27;, &#x27;active&#x27;) then\n        raise_application_error(-20002,\n            &#x27;metric must be one of: retention, revenue, active&#x27;);\n    end if;\n    if l_period_type not in (&#x27;monthly&#x27;, &#x27;weekly&#x27;) then\n        raise_application_error(-20003,\n            &#x27;periodType must be one of: monthly, weekly&#x27;);\n    end if;\n    if l_cohort_count &lt; 3 or l_cohort_count &gt; 24 then\n        raise_application_error(-20004,\n            &#x27;cohortCount must be between 3 and 24&#x27;);\n    end if;\n    if l_max_periods &lt; 3 or l_max_periods &gt; 24 then\n        raise_application_error(-20005,\n            &#x27;maxPeriods must be between 3 and 24&#x27;);\n    end if;\n\n    -- ============================================================\n    -- Re-generate the dataset with the requested parameters.\n    -- chs_generate_cohort_data commits internally.\n    -- ============================================================\n    chs_generate_cohort_data(\n        p_metric       =&gt; l_metric,\n        p_period_type  =&gt; l_period_type,\n        p_cohort_count =&gt; l_cohort_count,\n        p_max_periods  =&gt; l_max_periods\n    );\n\n    -- ============================================================\n    -- meta: metric / periodType / generatedAt\n    -- ============================================================\n    select metric, period_type, generated_at\n    into   l_meta_metric, l_meta_period, l_generated_at\n    from   chs_dataset_meta\n    fetch first 1 rows only;\n\n    -- ============================================================\n    -- periods[] and periodLabels[]\n    -- ============================================================\n    for r in (\n        select period_code, period_label\n        from   chs_periods\n        order  by period_index\n    ) loop\n        l_periods.append(r.period_code);\n        l_period_labels.append(r.period_label);\n    end loop;\n\n    -- ============================================================\n    -- cohorts[] (with nested cells[])\n    -- ============================================================\n    for ch in (\n        select cohort_index, cohort_id, cohort_label, original_users\n        from   chs_cohorts\n        order  by cohort_index\n    ) loop\n        l_cohort_obj := json_object_t();\n        l_cells      := json_array_t();\n\n        for cell in (\n            select cohort_index, period_index, retention,\n                   users_retained, users_original\n            from   chs_cohort_cells\n            where  cohort_index = ch.cohort_index\n            order  by period_index\n        ) loop\n            l_cell := json_object_t();\n            l_cell.put(&#x27;cohortIndex&#x27;,   cell.cohort_index);\n            l_cell.put(&#x27;periodIndex&#x27;,   cell.period_index);\n            l_cell.put(&#x27;retention&#x27;,     cell.retention);\n            l_cell.put(&#x27;usersRetained&#x27;, cell.users_retained);\n            l_cell.put(&#x27;usersOriginal&#x27;, cell.users_original);\n            l_cells.append(l_cell);\n        end loop;\n\n        l_cohort_obj.put(&#x27;cohortId&#x27;,      ch.cohort_id);\n        l_cohort_obj.put(&#x27;cohortLabel&#x27;,   ch.cohort_label);\n        l_cohort_obj.put(&#x27;originalUsers&#x27;, ch.original_users);\n        l_cohort_obj.put(&#x27;cells&#x27;,         l_cells);\n        l_cohorts.append(l_cohort_obj);\n    end loop;\n\n    -- ============================================================\n    -- CohortDataSchema (root)\n    -- ============================================================\n    l_root.put(&#x27;cohorts&#x27;,      l_cohorts);\n    l_root.put(&#x27;periods&#x27;,      l_periods);\n    l_root.put(&#x27;periodLabels&#x27;, l_period_labels);\n    l_root.put(&#x27;metric&#x27;,       l_meta_metric);\n    l_root.put(&#x27;periodType&#x27;,   l_meta_period);\n    l_root.put(\n        &#x27;generatedAt&#x27;,\n        to_char(\n            l_generated_at at time zone &#x27;UTC&#x27;,\n            &#x27;YYYY-MM-DD\&quot;T\&quot;HH24:MI:SS.FF3\&quot;Z\&quot;&#x27;\n        )\n    );\n\n    return l_root.to_clob();\nend chs_get_cohort_data_response;\n/\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:26</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>The file /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_get_cohort_data_response.sql has been updated successfully.</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:26</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:26</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>[chs_get_cohort_data_response.sql](examples/cohort-heatmap-server/chs_get_cohort_data_response.sql) を改変しました。</p>
+<h2>変更点</h2>
+<ol><li>1. &lt;strong&gt;シグネチャ&lt;/strong&gt;: &lt;code class=&quot;inline-code&quot;&gt;function chs_get_cohort_data_response(p_parameters in clob default null) return clob&lt;/code&gt;</li><li>2. &lt;strong&gt;JSONパース&lt;/strong&gt;: &lt;code class=&quot;inline-code&quot;&gt;json_object_t.parse(p_parameters)&lt;/code&gt; で受け取り、&lt;code class=&quot;inline-code&quot;&gt;has()&lt;/code&gt; + &lt;code class=&quot;inline-code&quot;&gt;get_string()&lt;/code&gt;/&lt;code class=&quot;inline-code&quot;&gt;get_number()&lt;/code&gt; で各フィールド抽出。</li><li>3. &lt;strong&gt;デフォルト値&lt;/strong&gt;: 各ローカル変数の初期値で &lt;code class=&quot;inline-code&quot;&gt;input_schema.json&lt;/code&gt; の &lt;code class=&quot;inline-code&quot;&gt;default&lt;/code&gt; を反映 (&lt;code class=&quot;inline-code&quot;&gt;retention&lt;/code&gt; / &lt;code class=&quot;inline-code&quot;&gt;monthly&lt;/code&gt; / &lt;code class=&quot;inline-code&quot;&gt;12&lt;/code&gt; / &lt;code class=&quot;inline-code&quot;&gt;12&lt;/code&gt;)。</li><li>4. &lt;strong&gt;バリデーション&lt;/strong&gt;: &lt;code class=&quot;inline-code&quot;&gt;enum&lt;/code&gt; と &lt;code class=&quot;inline-code&quot;&gt;min&lt;/code&gt;/&lt;code class=&quot;inline-code&quot;&gt;max&lt;/code&gt; を &lt;code class=&quot;inline-code&quot;&gt;raise_application_error&lt;/code&gt; で検証。</li><li>5. &lt;strong&gt;再生成&lt;/strong&gt;: 解析済みパラメータで &lt;code class=&quot;inline-code&quot;&gt;chs_generate_cohort_data&lt;/code&gt; を呼び、テーブルを更新してから JSON を組み立て。</li></ol>
+<h2>互換性</h2>
+<ul><li>&lt;code class=&quot;inline-code&quot;&gt;default null&lt;/code&gt; のため、引数なしで呼んでも従来通り動作します ([chs_install.sql](examples/cohort-heatmap-server/chs_install.sql) の &lt;code class=&quot;inline-code&quot;&gt;dbms_output.put_line(chs_get_cohort_data_response);&lt;/code&gt; はそのまま使えます)。</li><li>関数内で &lt;code class=&quot;inline-code&quot;&gt;chs_generate_cohort_data&lt;/code&gt; (DML を含む) を呼ぶため、フレームワーク側は PL/SQL ブロック経由でこの関数を呼び出している前提です (SELECT 文から直接呼ぶ用途には向きません)。</li></ul></div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:32</span>
+  </div>
+  <div class="turn-body">
+    <p>chs_get_cohort_data_responseの現在の出力をstrucuredContentの値とし、typeがtextのtextとしてformatCohortSummaryもPL/SQLのコードで実装し、chs_get_cohort_data_responseの出力が以下の形式と一致するようにしてください。<br>      return {<br>        content: [{ type: "text", text: formatCohortSummary(data) }],<br>        structuredContent: data,<br>      };</p>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:36</span>
+  </div>
+  <div class="turn-body">
+    
+<details class="thinking-block">
+  <summary>💭 Thinking</summary>
+  <div class="thinking-content"></div>
+</details>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:36</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><code class="inline-code">chs_get_cohort_data_response</code> を <code class="inline-code">{ content: [...], structuredContent: data }</code> 形式の出力にし、<code class="inline-code">formatCohortSummary</code> を PL/SQL で実装しました。</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:36</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-use">
+  <div class="tool-header">
+    <span class="tool-icon">⚡</span>
+    <span class="tool-name">Write</span>
+  </div>
+  <div class="tool-input"><pre>{
+  &quot;file_path&quot;: &quot;/Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_get_cohort_data_response.sql&quot;,
+  &quot;content&quot;: &quot;create or replace function chs_get_cohort_data_response(\n    p_parameters in clob default null\n) return clob\nas\n    -- ---------------------------------------------------------\n    -- Parsed inputs (defaults mirror input_schema.json)\n    -- ---------------------------------------------------------\n    l_params         json_object_t;\n    l_metric         varchar2(20)  := &#x27;retention&#x27;;\n    l_period_type    varchar2(20)  := &#x27;monthly&#x27;;\n    l_cohort_count   number        := 12;\n    l_max_periods    number        := 12;\n\n    -- root wrapper: { content: [...], structuredContent: data }\n    l_root           json_object_t := json_object_t();\n    l_content        json_array_t  := json_array_t();\n    l_content_item   json_object_t;\n\n    -- structuredContent = CohortData\n    l_data           json_object_t := json_object_t();\n\n    -- cohorts[]\n    l_cohorts        json_array_t  := json_array_t();\n    l_cohort_obj     json_object_t;\n    l_cells          json_array_t;\n    l_cell           json_object_t;\n\n    -- periods[] / periodLabels[]\n    l_periods        json_array_t  := json_array_t();\n    l_period_labels  json_array_t  := json_array_t();\n\n    -- meta\n    l_meta_metric    chs_dataset_meta.metric%type;\n    l_meta_period    chs_dataset_meta.period_type%type;\n    l_generated_at   chs_dataset_meta.generated_at%type;\n\n    -- formatCohortSummary() locals\n    l_n_cohorts      number;\n    l_n_periods      number;\n    l_avg_retention  number;\n    l_pct_str        varchar2(50);\n    l_summary_text   varchar2(4000);\nbegin\n    -- ============================================================\n    -- Parse p_parameters per input_schema.json\n    -- (GetCohortDataInput: metric / periodType / cohortCount / maxPeriods)\n    -- All fields are optional; missing fields fall back to defaults.\n    -- ============================================================\n    if p_parameters is not null and dbms_lob.getlength(p_parameters) &gt; 0 then\n        l_params := json_object_t.parse(p_parameters);\n\n        if l_params.has(&#x27;metric&#x27;) then\n            l_metric := l_params.get_string(&#x27;metric&#x27;);\n        end if;\n        if l_params.has(&#x27;periodType&#x27;) then\n            l_period_type := l_params.get_string(&#x27;periodType&#x27;);\n        end if;\n        if l_params.has(&#x27;cohortCount&#x27;) then\n            l_cohort_count := l_params.get_number(&#x27;cohortCount&#x27;);\n        end if;\n        if l_params.has(&#x27;maxPeriods&#x27;) then\n            l_max_periods := l_params.get_number(&#x27;maxPeriods&#x27;);\n        end if;\n    end if;\n\n    -- ============================================================\n    -- Validate against input_schema constraints\n    -- ============================================================\n    if l_metric not in (&#x27;retention&#x27;, &#x27;revenue&#x27;, &#x27;active&#x27;) then\n        raise_application_error(-20002,\n            &#x27;metric must be one of: retention, revenue, active&#x27;);\n    end if;\n    if l_period_type not in (&#x27;monthly&#x27;, &#x27;weekly&#x27;) then\n        raise_application_error(-20003,\n            &#x27;periodType must be one of: monthly, weekly&#x27;);\n    end if;\n    if l_cohort_count &lt; 3 or l_cohort_count &gt; 24 then\n        raise_application_error(-20004,\n            &#x27;cohortCount must be between 3 and 24&#x27;);\n    end if;\n    if l_max_periods &lt; 3 or l_max_periods &gt; 24 then\n        raise_application_error(-20005,\n            &#x27;maxPeriods must be between 3 and 24&#x27;);\n    end if;\n\n    -- ============================================================\n    -- Re-generate the dataset with the requested parameters.\n    -- chs_generate_cohort_data commits internally.\n    -- ============================================================\n    chs_generate_cohort_data(\n        p_metric       =&gt; l_metric,\n        p_period_type  =&gt; l_period_type,\n        p_cohort_count =&gt; l_cohort_count,\n        p_max_periods  =&gt; l_max_periods\n    );\n\n    -- ============================================================\n    -- meta: metric / periodType / generatedAt\n    -- ============================================================\n    select metric, period_type, generated_at\n    into   l_meta_metric, l_meta_period, l_generated_at\n    from   chs_dataset_meta\n    fetch first 1 rows only;\n\n    -- ============================================================\n    -- periods[] and periodLabels[]\n    -- ============================================================\n    for r in (\n        select period_code, period_label\n        from   chs_periods\n        order  by period_index\n    ) loop\n        l_periods.append(r.period_code);\n        l_period_labels.append(r.period_label);\n    end loop;\n\n    -- ============================================================\n    -- cohorts[] (with nested cells[])\n    -- ============================================================\n    for ch in (\n        select cohort_index, cohort_id, cohort_label, original_users\n        from   chs_cohorts\n        order  by cohort_index\n    ) loop\n        l_cohort_obj := json_object_t();\n        l_cells      := json_array_t();\n\n        for cell in (\n            select cohort_index, period_index, retention,\n                   users_retained, users_original\n            from   chs_cohort_cells\n            where  cohort_index = ch.cohort_index\n            order  by period_index\n        ) loop\n            l_cell := json_object_t();\n            l_cell.put(&#x27;cohortIndex&#x27;,   cell.cohort_index);\n            l_cell.put(&#x27;periodIndex&#x27;,   cell.period_index);\n            l_cell.put(&#x27;retention&#x27;,     cell.retention);\n            l_cell.put(&#x27;usersRetained&#x27;, cell.users_retained);\n            l_cell.put(&#x27;usersOriginal&#x27;, cell.users_original);\n            l_cells.append(l_cell);\n        end loop;\n\n        l_cohort_obj.put(&#x27;cohortId&#x27;,      ch.cohort_id);\n        l_cohort_obj.put(&#x27;cohortLabel&#x27;,   ch.cohort_label);\n        l_cohort_obj.put(&#x27;originalUsers&#x27;, ch.original_users);\n        l_cohort_obj.put(&#x27;cells&#x27;,         l_cells);\n        l_cohorts.append(l_cohort_obj);\n    end loop;\n\n    -- ============================================================\n    -- Build structuredContent (CohortData)\n    -- ============================================================\n    l_data.put(&#x27;cohorts&#x27;,      l_cohorts);\n    l_data.put(&#x27;periods&#x27;,      l_periods);\n    l_data.put(&#x27;periodLabels&#x27;, l_period_labels);\n    l_data.put(&#x27;metric&#x27;,       l_meta_metric);\n    l_data.put(&#x27;periodType&#x27;,   l_meta_period);\n    l_data.put(\n        &#x27;generatedAt&#x27;,\n        to_char(\n            l_generated_at at time zone &#x27;UTC&#x27;,\n            &#x27;YYYY-MM-DD\&quot;T\&quot;HH24:MI:SS.FF3\&quot;Z\&quot;&#x27;\n        )\n    );\n\n    -- ============================================================\n    -- formatCohortSummary(data)\n    -- Port of TypeScript:\n    --   const avgRetention = data.cohorts\n    --     .flatMap((c) =&gt; c.cells)\n    --     .filter((cell) =&gt; cell.periodIndex &gt; 0)\n    --     .reduce((sum, cell, _, arr) =&gt; sum + cell.retention / arr.length, 0);\n    --   `Cohort Analysis: ${cohorts.length} cohorts, ${periods.length} periods\n    --    Average retention: ${(avgRetention * 100).toFixed(1)}%\n    --    Metric: ${metric}, Period: ${periodType}`\n    -- ============================================================\n    select count(*) into l_n_cohorts from chs_cohorts;\n    select count(*) into l_n_periods from chs_periods;\n    select nvl(avg(retention), 0)\n      into l_avg_retention\n      from chs_cohort_cells\n     where period_index &gt; 0;\n\n    -- toFixed(1) equivalent: round to 1 decimal, force unit digit\n    l_pct_str := trim(to_char(round(l_avg_retention * 100, 1), &#x27;99990.0&#x27;));\n\n    l_summary_text :=\n        &#x27;Cohort Analysis: &#x27; || l_n_cohorts || &#x27; cohorts, &#x27;\n            || l_n_periods || &#x27; periods&#x27; || chr(10) ||\n        &#x27;Average retention: &#x27; || l_pct_str || &#x27;%&#x27; || chr(10) ||\n        &#x27;Metric: &#x27; || l_meta_metric || &#x27;, Period: &#x27; || l_meta_period;\n\n    -- ============================================================\n    -- content[0] = { type: \&quot;text\&quot;, text: formatCohortSummary(data) }\n    -- ============================================================\n    l_content_item := json_object_t();\n    l_content_item.put(&#x27;type&#x27;, &#x27;text&#x27;);\n    l_content_item.put(&#x27;text&#x27;, l_summary_text);\n    l_content.append(l_content_item);\n\n    -- ============================================================\n    -- root = { content: [...], structuredContent: data }\n    -- ============================================================\n    l_root.put(&#x27;content&#x27;,           l_content);\n    l_root.put(&#x27;structuredContent&#x27;, l_data);\n\n    return l_root.to_clob();\nend chs_get_cohort_data_response;\n/\n&quot;
+}</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn user">
+  <div class="turn-header">
+    <span class="avatar avatar-user">U</span>
+    <span class="role-label">You</span>
+    <span class="timestamp">2026-04-17 01:36</span>
+  </div>
+  <div class="turn-body">
+    
+<div class="tool-result">
+  <div class="tool-result-header">✅ Result</div>
+  <div class="tool-result-content"><pre>The file /Users/********/Documents/mcp-app/examples/cohort-heatmap-server/chs_get_cohort_data_response.sql has been updated successfully.</pre></div>
+</div>
+  </div>
+</div>
+
+<div class="turn assistant">
+  <div class="turn-header">
+    <span class="avatar avatar-assistant">C</span>
+    <span class="role-label">Claude</span>
+    <span class="timestamp">2026-04-17 01:37</span>
+  </div>
+  <div class="turn-body">
+    <div class="text-block"><p>[chs_get_cohort_data_response.sql](examples/cohort-heatmap-server/chs_get_cohort_data_response.sql) を更新しました。</p>
+<h2>変更点</h2>
+<ol><li>1. &lt;strong&gt;ラッパー追加&lt;/strong&gt;: 既存の CohortData JSON を &lt;code class=&quot;inline-code&quot;&gt;l_data&lt;/code&gt; (= &lt;code class=&quot;inline-code&quot;&gt;structuredContent&lt;/code&gt;) に詰め直し、新たな &lt;code class=&quot;inline-code&quot;&gt;l_root&lt;/code&gt; を &lt;code class=&quot;inline-code&quot;&gt;{content: [...], structuredContent: l_data}&lt;/code&gt; で構築。</li><li>2. &lt;strong&gt;formatCohortSummary を PL/SQL 化&lt;/strong&gt;:</li></ol>   - <code class="inline-code">l_n_cohorts</code> / <code class="inline-code">l_n_periods</code> … <code class="inline-code">chs_cohorts</code> / <code class="inline-code">chs_periods</code> の <code class="inline-code">count(*)</code>
+   - <code class="inline-code">l_avg_retention</code> … <code class="inline-code">chs_cohort_cells where period_index &gt; 0</code> の <code class="inline-code">avg(retention)</code> (空集合時は <code class="inline-code">nvl(..., 0)</code> で TS の <code class="inline-code">reduce(..., 0)</code> と整合)
+   - <code class="inline-code">(x <em> 100).toFixed(1)&lt;/code&gt; … &lt;code class=&quot;inline-code&quot;&gt;to_char(round(x</em>100, 1), &#x27;99990.0&#x27;)</code> + <code class="inline-code">trim</code> (例: <code class="inline-code">0.5</code> → <code class="inline-code">&quot;0.5&quot;</code>)
+   - 改行は <code class="inline-code">chr(10)</code> でテンプレートリテラルの実改行を再現
+<ol><li>3. &lt;strong&gt;content 要素&lt;/strong&gt;: &lt;code class=&quot;inline-code&quot;&gt;{type: &amp;#x27;text&amp;#x27;, text: l_summary_text}&lt;/code&gt; を &lt;code class=&quot;inline-code&quot;&gt;l_content&lt;/code&gt; に append。</li></ol>
+<h2>出力イメージ</h2>
+<div class="code-block"><span class="lang">json</span><pre><code class="language-json">{
+  &quot;content&quot;: [
+    {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;text&quot;: &quot;Cohort Analysis: 12 cohorts, 12 periods\nAverage retention: 45.3%\nMetric: retention, Period: monthly&quot;
+    }
+  ],
+  &quot;structuredContent&quot;: {
+    &quot;cohorts&quot;: [...],
+    &quot;periods&quot;: [&quot;M0&quot;,&quot;M1&quot;,...],
+    &quot;periodLabels&quot;: [&quot;Month 0&quot;,&quot;Month 1&quot;,...],
+    &quot;metric&quot;: &quot;retention&quot;,
+    &quot;periodType&quot;: &quot;monthly&quot;,
+    &quot;generatedAt&quot;: &quot;2026-04-17T12:34:56.789Z&quot;
+  }
+}
+</code></pre></div></div>
+  </div>
+</div>
+</div>
+</body>
+</html>
