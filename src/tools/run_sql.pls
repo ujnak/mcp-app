@@ -112,7 +112,7 @@ begin
             dbms_sql.define_column(l_cursor, i, l_val_clob);
         else
             /* ignore if data type is not varchar2, date variants or clob */
-            logger.log_info('skip define_columne for ' || l_col_names(i) || ' data_type = ' || l_desc_tab(i).col_type, l_scope);
+            logger.log_info('skip define_column for ' || l_col_names(i) || ' data_type = ' || l_desc_tab(i).col_type, l_scope);
             null;
         end if;
     end loop;
