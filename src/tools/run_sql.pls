@@ -7,7 +7,7 @@ authid current_user
  * Execute an arbitrary SELECT statement and return result as a JSON array.
  */
 as
-    l_scope logger_logs.scope%type := 'run_sql2';
+    l_scope logger_logs.scope%type := 'run_sql';
 
     /*
      * The wrapper SQL for pagination is based on the APEX implementation.
