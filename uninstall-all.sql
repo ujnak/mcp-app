@@ -1,4 +1,5 @@
 set serveroutput on
+@@src/async/deinstall-queue.sql
 /*
  * Delete ORDS REST Module sampleserver if exists.
  */
@@ -26,17 +27,22 @@ declare
         'drop procedure oj_mcp_ras_post_handler',
         'drop procedure oj_mcp_ras_delete_handler',
         'drop procedure oj_mcp_vpd_post_handler',
+        'drop procedure tools_call_async',
+        'drop procedure oj_mcp_task_worker',
         'drop procedure oj_mcp_post_handler',
         'drop procedure oj_mcp_delete_handler',
         'drop package oj_mdp_vpd_config',
         'drop package oj_mcp_ras_config',
         'drop package oj_mcp_ras_ctx',
+        'drop package oj_mcp_run_sql_async',
+        'drop package oj_mcp_tasks',
         'drop package oj_mcp_app_server',
         'drop package oj_mcp_app_methods',
         'drop package oj_mcp_app_utils',
         'drop package oj_mcp_jsonrpc_utils',
         'drop view oj_mcp_uc_ai_tools',
         'drop table oj_mcp_allowed_origins',
+        'drop table oj_mcp_task_states',
         'drop table oj_mcp_tools_annotations',
         'drop table oj_mcp_tools_extras',
         'drop table oj_mcp_ui_permissions',

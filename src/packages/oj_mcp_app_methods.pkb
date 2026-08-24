@@ -33,6 +33,7 @@ as
     l_tools_json               json_object_t;
     l_client_extensions_json   json_object_t;
     l_server_extensions_json   json_object_t;
+    l_tasks_extension_json     json_object_t;
     l_ui_extension_json        json_object_t;
     l_mime_types               json_array_t;
 begin
@@ -58,6 +59,12 @@ begin
     l_tools_json.put('listChanged', false);
     l_server_capabilities_json.put('tools', l_tools_json);
 
+    /* The Tasks extension is negotiated per request. */
+    l_server_extensions_json := json_object_t();
+    l_tasks_extension_json := json_object_t();
+    l_server_extensions_json.put('io.modelcontextprotocol/tasks', l_tasks_extension_json);
+    l_server_capabilities_json.put('extensions', l_server_extensions_json);
+
     /*
         * Clients that support the MCP App include the following entry in the capabilities.extensions field.
         * Ref: https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#clientserver-capability-negotiation
@@ -74,13 +81,11 @@ begin
     l_client_extensions_json := p_client_capabilities_json.get_object('extensions');
     if l_client_extensions_json is not null then
         if l_client_extensions_json.get_object('io.modelcontextprotocol/ui') is not null then
-            l_server_extensions_json := json_object_t();
             l_ui_extension_json := json_object_t();
             l_mime_types := json_array_t();
             l_mime_types.append('text/html;profile=mcp-app');
             l_ui_extension_json.put('mimeTypes', l_mime_types);
             l_server_extensions_json.put('io.modelcontextprotocol/ui', l_ui_extension_json);
-            l_server_capabilities_json.put('extensions', l_server_extensions_json);
         end if;
     end if;
 
@@ -182,7 +187,8 @@ function generate_object_for_tools_call(
     p_args           in json_object_t,
     p_ras_config_pkg in varchar2 default null,
     p_current_user   in varchar2 default null,
-    p_mcp_session_id in varchar2 default null
+    p_mcp_session_id in varchar2 default null,
+    p_execution_schema in varchar2 default null
 )
 return json_object_t
 as
@@ -243,9 +249,13 @@ begin
     l_plsql_block := replace(l_plsql_block, '#FC_CODE#', l_fc_code);
     /* The username must be enclosed in double quotes. */
     l_plsql_block := replace(l_plsql_block, '#SESSION_USER#', 
-        sys.dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER')));
+        sys.dbms_assert.enquote_name(
+            nvl(p_execution_schema, sys_context('USERENV', 'SESSION_USER'))
+        ));
     l_plsql_block := replace(l_plsql_block, '#CURRENT_USER#',
-        sys.dbms_assert.enquote_name(sys_context('USERENV', 'CURRENT_USER')));
+        sys.dbms_assert.enquote_name(
+            nvl(p_execution_schema, sys_context('USERENV', 'CURRENT_USER'))
+        ));
     /* Sub in a Bearer token is external input, it must be sanitized before use */
     l_plsql_block := replace(l_plsql_block, '#AUTHENTICATED_IDENTITY#',
         sys.dbms_assert.enquote_name(str => p_current_user, capitalize => false));

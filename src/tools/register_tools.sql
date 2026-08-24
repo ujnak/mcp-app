@@ -61,6 +61,23 @@ begin
     p_json_schema => l_schema,
     p_tags => apex_t_varchar2('nl2sql','sampleserver','run-sql')
   );
+
+  merge into oj_mcp_tools_extras t
+  using (
+    select l_tool_id tool_id, 1 task_enabled,
+           3600000 task_ttl_ms, 1000 task_poll_interval_ms
+      from dual
+  ) s
+  on (t.tool_id = s.tool_id)
+  when matched then update set
+    t.task_enabled = s.task_enabled,
+    t.task_ttl_ms = s.task_ttl_ms,
+    t.task_poll_interval_ms = s.task_poll_interval_ms
+  when not matched then insert (
+    tool_id, task_enabled, task_ttl_ms, task_poll_interval_ms
+  ) values (
+    s.tool_id, s.task_enabled, s.task_ttl_ms, s.task_poll_interval_ms
+  );
   commit;
 end;
 /

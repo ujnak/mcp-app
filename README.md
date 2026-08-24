@@ -55,11 +55,13 @@ This implementation is intended for experimentation and reference purposes.
 Creates:
 
 - table `OJ_MCP_ALLOWED_ORIGINS`
+- table `OJ_MCP_TASK_STATES`
 - table `OJ_MCP_UI_RESOURCES`
 - table `OJ_MCP_UI_CSP_DOMAINS`
 - table `OJ_MCP_UI_PERMMISSIONS`
 - table `OJ_MCP_TOOLS_EXTRAS`
 - view `OJ_MCP_UC_AI_TOOLS`
+- AQ queue `OJ_MCP_TASK_Q` and its payload type
 
 ### install-packages.sql
 
@@ -69,12 +71,19 @@ Creates the following packages:
 - `OJ_MCP_JSONRPC_UTILS`
 - `OJ_MCP_APP_UTILS`
 - `OJ_MCP_APP_METHODS`
+- `OJ_MCP_TASKS`
 - `OJ_MCP_APP_SERVER`
 
 procedures:
 
 - `OJ_MCP_POST_HANDLER`
 - `OJ_MCP_RAS_POST_HANDLER`
+- `OJ_MCP_TASK_WORKER`
+
+The sample `run_sql` tool uses the MCP Tasks extension for asynchronous
+execution when the client declares `io.modelcontextprotocol/tasks`. See
+[the 2026-07-28 protocol notes](docs/mcp-2026-07-28.md#tasks-extension) for
+configuration and request requirements.
 
 ### install-sampleserver.sql
 

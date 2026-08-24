@@ -28,7 +28,8 @@ function generate_object_for_tools_call(
     p_args           in json_object_t,
     p_ras_config_pkg in varchar2 default null,
     p_current_user   in varchar2 default null,
-    p_mcp_session_id in varchar2 default null
+    p_mcp_session_id in varchar2 default null,
+    p_execution_schema in varchar2 default null
 )
 return json_object_t;
 

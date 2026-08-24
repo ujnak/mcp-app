@@ -49,7 +49,9 @@ as
         l_meta json_object_t;
         l_server_info json_object_t := json_object_t();
     begin
-        l_result.put('resultType', 'complete');
+        if not l_result.has('resultType') then
+            l_result.put('resultType', 'complete');
+        end if;
         l_meta := l_result.get_object('_meta');
         if l_meta is null then l_meta := json_object_t(); end if;
         l_server_info.put('name', p_context);
@@ -148,6 +150,10 @@ as
         p_username     in varchar2
         ,p_params      in clob
         ,p_context     in varchar2
+        ,p_client_capabilities in json_object_t
+        ,p_ords_pattern in varchar2
+        ,p_apex_app_id in number
+        ,p_apex_page_id in number
         ,p_result      out clob
         ,p_error       out clob
         ,p_status_code out number
@@ -194,16 +200,27 @@ as
          * The arguments parameter is optional.
          */
         l_args_obj := l_params.get_object('arguments');
-        /*
-         * Execute Tool.
-         */
-        l_result_json := oj_mcp_app_methods.generate_object_for_tools_call(
-            p_name => l_name,
-            p_args => l_args_obj,
-            p_ras_config_pkg => g_ras_config_pkg,
-            p_current_user => g_current_user,
-            p_mcp_session_id => g_mcp_session_id
-        );
+        if oj_mcp_tasks.client_supports_tasks(p_client_capabilities)
+           and oj_mcp_tasks.tool_tasks_enabled(l_name) then
+            l_result_json := oj_mcp_tasks.create_tool_task(
+                p_tool_name        => l_name,
+                p_arguments        => l_args_obj,
+                p_current_user     => p_username,
+                p_ords_pattern     => p_ords_pattern,
+                p_ords_module_name => p_context,
+                p_apex_app_id      => p_apex_app_id,
+                p_apex_page_id     => p_apex_page_id,
+                p_ras_config_pkg   => g_ras_config_pkg
+            );
+        else
+            l_result_json := oj_mcp_app_methods.generate_object_for_tools_call(
+                p_name => l_name,
+                p_args => l_args_obj,
+                p_ras_config_pkg => g_ras_config_pkg,
+                p_current_user => g_current_user,
+                p_mcp_session_id => g_mcp_session_id
+            );
+        end if;
         p_result := l_result_json.to_clob();
         p_error := null;
         p_status_code := 200;
@@ -616,10 +633,27 @@ as
                 return;
             end if;
 
-            if l_method in ('tools/call', 'resources/read') then
+            if l_method in ('tasks/get', 'tasks/update', 'tasks/cancel')
+               and not oj_mcp_tasks.client_supports_tasks(l_client_capabilities) then
+                l_error_data := json_object_t(
+                    '{"requiredCapabilities":{"extensions":{"io.modelcontextprotocol/tasks":{}}}}'
+                );
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(
+                    l_id,
+                    oj_mcp_tasks.C_MISSING_REQUIRED_CLIENT_CAPABILITY,
+                    'Missing required client capability',
+                    l_error_data.to_clob()
+                );
+                return;
+            end if;
+
+            if l_method in ('tools/call', 'resources/read', 'tasks/get', 'tasks/update', 'tasks/cancel') then
                 l_name_header := decode_mcp_header_value(owa_util.get_cgi_env('Mcp-Name'));
                 if l_method = 'resources/read' then
                     l_expected_name := l_params_obj.get_string('uri');
+                elsif l_method in ('tasks/get', 'tasks/update', 'tasks/cancel') then
+                    l_expected_name := l_params_obj.get_string('taskId');
                 else
                     l_expected_name := l_params_obj.get_string('name');
                 end if;
@@ -632,7 +666,8 @@ as
             end if;
 
             if l_method not in ('server/discover', 'tools/list', 'tools/call', 'resources/list',
-                                'resources/read', 'resources/templates/list') then
+                                'resources/read', 'resources/templates/list', 'tasks/get',
+                                'tasks/update', 'tasks/cancel') then
                 p_status_code := 404;
                 p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_METHOD_NOT_FOUND,
                     'Method ' || l_method || ' not found.');
@@ -689,13 +724,23 @@ as
             when 'tools/list' then 
                 tools_list(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'tools/call' then 
-                tools_call(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
+                tools_call(
+                    l_username, l_params, l_ords_module_name, l_client_capabilities,
+                    l_ords_pattern, l_apex_app_id, l_apex_page_id,
+                    l_result, l_error, l_status_code
+                );
             when 'resources/list' then 
                 resources_list(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'resources/read' then 
                 resources_read(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'resources/templates/list' then 
                 resources_templates_list(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
+            when 'tasks/get' then
+                oj_mcp_tasks.get_task(l_params, l_username, l_result, l_error, l_status_code);
+            when 'tasks/update' then
+                oj_mcp_tasks.update_task(l_params, l_username, l_result, l_error, l_status_code);
+            when 'tasks/cancel' then
+                oj_mcp_tasks.cancel_task(l_params, l_username, l_result, l_error, l_status_code);
             else
                 p_status_code := 404;
                 p_response := oj_mcp_jsonrpc_utils.create_error_response(

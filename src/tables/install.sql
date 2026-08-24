@@ -7,6 +7,14 @@ end;
 /
 
 begin
+    execute immediate 'drop table oj_mcp_task_states';
+exception
+   when others then
+       null;
+end;
+/
+
+begin
     execute immediate 'drop table oj_mcp_tools_annotations';
 exception
    when others then
@@ -58,6 +66,45 @@ create table oj_mcp_allowed_origins (
 
 comment on table oj_mcp_allowed_origins is
     'Exact browser Origin values allowed to call the MCP HTTP endpoint';
+
+/*
+ * Durable state for the io.modelcontextprotocol/tasks extension.
+ */
+create table oj_mcp_task_states (
+    task_id               varchar2(64 char)
+        constraint pk_oj_mcp_task_states primary key,
+    owner_name            varchar2(255 char) not null,
+    execution_schema      varchar2(128 char) not null,
+    tool_name             varchar2(128 char) not null,
+    arguments_json        clob,
+    status                varchar2(20 char) not null,
+    status_message        varchar2(4000 char),
+    result_json           clob,
+    error_json            clob,
+    created_at            timestamp with time zone not null,
+    last_updated_at       timestamp with time zone not null,
+    ttl_ms                number,
+    poll_interval_ms      number,
+    cancel_requested      number(1) default 0 not null,
+    ords_pattern          varchar2(255 char) not null,
+    ords_module_name      varchar2(255 char) not null,
+    apex_app_id           number not null,
+    apex_page_id          number not null,
+    ras_config_pkg        varchar2(128 char),
+    aq_msgid              raw(16),
+    constraint ck_oj_mcp_task_states_status check (
+        status in ('working', 'input_required', 'completed', 'cancelled', 'failed')
+    ),
+    constraint ck_oj_mcp_task_states_cancel check (cancel_requested in (0, 1)),
+    constraint ck_oj_mcp_task_states_args_json check (arguments_json is json),
+    constraint ck_oj_mcp_task_states_result_json check (result_json is json),
+    constraint ck_oj_mcp_task_states_error_json check (error_json is json)
+);
+
+create index ix_oj_mcp_task_states_owner on oj_mcp_task_states(owner_name, task_id);
+
+comment on table oj_mcp_task_states is
+    'Durable task states for the MCP io.modelcontextprotocol/tasks extension';
 
 /*
  * Table for storing UI resources.
@@ -161,6 +208,9 @@ create table oj_mcp_tools_extras (
     visibility    number,
     resource_consumer_group varchar2(32),
     coding_hint   clob,
+    task_enabled  number(1) default 0 not null,
+    task_ttl_ms   number default 3600000,
+    task_poll_interval_ms number default 1000,
     constraint oj_mcp_tools_extras_pk primary key ("TOOL_ID")
 );
 
@@ -169,6 +219,24 @@ comment on column oj_mcp_tools_extras.tool_id       is 'id of tool stored in UC_
 comment on column oj_mcp_tools_extras.output_schema is 'JSON Schema for Defining Structured Output';
 comment on column oj_mcp_tools_extras.visibility    is 'null = default, 1 = model only, 2 = app only, 3 = model and app';
 comment on column oj_mcp_tools_extras.coding_hint   is 'Guidelines the LLM Should Refer to When Generating PL/SQL Functions';
+comment on column oj_mcp_tools_extras.task_enabled  is '1 enables MCP Task execution when the client supports the Tasks extension';
+comment on column oj_mcp_tools_extras.task_ttl_ms   is 'Task lifetime in milliseconds; NULL means unlimited';
+comment on column oj_mcp_tools_extras.task_poll_interval_ms is 'Suggested client polling interval in milliseconds';
+
+alter table oj_mcp_tools_extras add constraint ck_oj_mcp_tools_extras_task
+check (task_enabled in (0, 1));
+
+alter table oj_mcp_tools_extras add constraint ck_oj_mcp_tools_extras_task_ttl
+check (
+    task_ttl_ms is null
+    or (task_ttl_ms >= 0 and task_ttl_ms = trunc(task_ttl_ms))
+);
+
+alter table oj_mcp_tools_extras add constraint ck_oj_mcp_tools_extras_task_poll
+check (
+    task_poll_interval_ms is null
+    or (task_poll_interval_ms >= 0 and task_poll_interval_ms = trunc(task_poll_interval_ms))
+);
 
 alter table oj_mcp_tools_extras add constraint oj_mcp_tools_extras_tool_id_fk foreign key ("TOOL_ID")
 references uc_ai_tools ("ID") on delete cascade enable;
@@ -221,7 +289,10 @@ select
     e.output_schema        output_schema,
     e.resource_consumer_group resource_consumer_group,
     e.coding_hint          coding_hint,
-    e.visibility           visibility
+    e.visibility           visibility,
+    e.task_enabled         task_enabled,
+    e.task_ttl_ms          task_ttl_ms,
+    e.task_poll_interval_ms task_poll_interval_ms
 from
     uc_ai_tools t left outer join oj_mcp_tools_extras e
     on t.id = e.tool_id
