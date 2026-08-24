@@ -54,6 +54,7 @@ This implementation is intended for experimentation and reference purposes.
 
 Creates:
 
+- table `OJ_MCP_ALLOWED_ORIGINS`
 - table `OJ_MCP_UI_RESOURCES`
 - table `OJ_MCP_UI_CSP_DOMAINS`
 - table `OJ_MCP_UI_PERMMISSIONS`
@@ -73,9 +74,7 @@ Creates the following packages:
 procedures:
 
 - `OJ_MCP_POST_HANDLER`
-- `OJ_MCP_DELETE_HANDLER`
 - `OJ_MCP_RAS_POST_HANDLER`
-- `OJ_MCP_RAS_DELETE_HANDLER`
 
 ### install-sampleserver.sql
 

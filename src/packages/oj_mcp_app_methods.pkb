@@ -21,67 +21,10 @@ begin
 end;]';
 
 /**
- * Set APEX and Logger log level from  MCP log level.
- */
-procedure set_log_level(
-    p_log_level in varchar2
-)
-as
-    l_scope logger_logs.scope%type := gc_scope_prefix || 'set_log_level';
-    l_log_level_logger varchar2(16) := null;
-    l_log_level_apex   pls_integer  := null;
-begin
-    if p_log_level is not null then
-        select
-            case p_log_level
-                when 'debug'     then 'DEBUG'
-                when 'info'      then 'INFORMATION'
-                when 'notice'    then 'WARNING'
-                when 'warning'   then 'WARNING'
-                when 'error'     then 'ERROR'
-                when 'critical'  then 'PERMANENT'
-                when 'alert'     then 'PERMANENT'
-                when 'emergency' then 'PERMANENT'
-                else null
-            end log_level_logger,
-            case p_log_level
-                -- currently APEX trace for MCP debug is too much.
-                -- when 'debug'     then apex_debug.c_log_level_trace
-                when 'debug'     then apex_debug.c_log_level_info
-                when 'info'      then apex_debug.c_log_level_info
-                when 'notice'    then apex_debug.c_log_level_warn
-                when 'warning'   then apex_debug.c_log_level_warn
-                when 'error'     then apex_debug.c_log_level_error
-                when 'critical'  then apex_debug.c_log_level_error
-                when 'alert'     then apex_debug.c_log_level_error
-                when 'emergency' then apex_debug.c_log_level_error
-                else null
-            end log_level_apex        
-            into l_log_level_logger, l_log_level_apex
-        from dual;
-    end if;
-    if l_log_level_logger is not null then
-        logger.set_level(l_log_level_logger);
-        logger.log_info('Logger log level is now ' || l_log_level_logger, l_scope);
-    else
-        logger.set_level('OFF');
-        logger.log_info('Logger log is disabled', l_scope);
-    end if;
-    if l_log_level_apex   is not null then
-        apex_debug.enable(l_log_level_apex);
-        logger.log_info('APEX log level is now ' || l_log_level_apex, l_scope);
-    else
-        apex_debug.disable();
-        logger.log_info('APEX log is disabled', l_scope);
-    end if;
-end set_log_level;
-
-/**
  * Client Server capability negotiation.
  */
 function negotiate_client_server_capabilities(
-    p_client_capabilities_json in json_object_t,
-    p_protocol_2026 in boolean default false
+    p_client_capabilities_json in json_object_t
 ) return json_object_t
 as
     l_scope logger_logs.scope%type := gc_scope_prefix || 'negotiate_client_server_capabilities';
@@ -98,25 +41,21 @@ begin
     /* construct negotiated capabilities */
     l_server_capabilities_json := json_object_t();
 
-    if not p_protocol_2026 then
-        l_server_capabilities_json.put('logging', json_object_t());
-    end if;
-
     /* 
         * resources for MCP App support
-        * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/resources#capabilities
+        * Ref: https://modelcontextprotocol.io/specification/2026-07-28/server/resources#capabilities
         */
     l_resources_json := json_object_t();
     l_resources_json.put('subscribe', false);
-    l_resources_json.put('listChanged', not p_protocol_2026);
+    l_resources_json.put('listChanged', false);
     l_server_capabilities_json.put('resources', l_resources_json);
 
     /*
         * tools support
-        * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/tools#capabilities
+        * Ref: https://modelcontextprotocol.io/specification/2026-07-28/server/tools#capabilities
         */
     l_tools_json := json_object_t();
-    l_tools_json.put('listChanged', not p_protocol_2026);
+    l_tools_json.put('listChanged', false);
     l_server_capabilities_json.put('tools', l_tools_json);
 
     /*
@@ -373,9 +312,9 @@ begin
                 where cookie = oj_mcp_ras_ctx.get_cookie_name(p_current_user, p_mcp_session_id);
             exception
                 when no_data_found then
-                    l_out := 'No RAS session found for MCP Session, The session must be re-established.';
+                    l_out := 'No request-scoped RAS session was found.';
                     is_error := true;
-                    logger.log_error('No RAS session found for MCP Session ' || p_mcp_session_id, l_scope);
+                    logger.log_error('No request-scoped RAS session found for ' || p_mcp_session_id, l_scope);
                 when others then
                     l_out := sqlerrm;
                     is_error := true;

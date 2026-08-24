@@ -8,7 +8,6 @@ as
     l_scope logger_logs.scope%type := 'oj_mcp_post_handler';
 
     l_response    blob;
-    l_session_id  varchar2(128);
     l_status_code number;
     l_request     blob;
 begin
@@ -20,7 +19,6 @@ begin
         ,p_username    => p_current_user
         ,p_request     => l_request
         ,p_response    => l_response
-        ,p_session_id  => l_session_id
         ,p_status_code => l_status_code
     );
     /*
@@ -29,9 +27,6 @@ begin
     p_status_code := l_status_code;
     sys.htp.init;
     sys.htp.p('Content-Type: application/json');
-    if l_session_id is not null then
-        sys.htp.p('Mcp-Session-Id: ' || l_session_id);
-    end if;
     if l_response is not null and dbms_lob.getlength(l_response) > 0 then
         sys.htp.p('Content-Length: ' || dbms_lob.getlength(l_response));
         sys.owa_util.http_header_close;

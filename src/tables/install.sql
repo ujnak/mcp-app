@@ -1,4 +1,12 @@
 begin
+    execute immediate 'drop table oj_mcp_allowed_origins';
+exception
+   when others then
+       null;
+end;
+/
+
+begin
     execute immediate 'drop table oj_mcp_tools_annotations';
 exception
    when others then
@@ -37,6 +45,19 @@ exception
        null;
 end;
 /
+
+/*
+ * Exact Origin values allowed to call the MCP endpoint from a browser context.
+ * Requests without an Origin header are intended for native MCP clients and do
+ * not require an entry. An empty table rejects every request that has Origin.
+ */
+create table oj_mcp_allowed_origins (
+    origin varchar2(1000 char)
+        constraint pk_oj_mcp_allowed_origins primary key
+);
+
+comment on table oj_mcp_allowed_origins is
+    'Exact browser Origin values allowed to call the MCP HTTP endpoint';
 
 /*
  * Table for storing UI resources.

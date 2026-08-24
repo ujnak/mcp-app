@@ -3,7 +3,6 @@ as
 
     gc_scope_prefix constant varchar2(31 char) := lower($$plsql_unit) || '.';
 
-    C_MCP_SESSION_ID_HEADER constant varchar2(16) := 'Mcp-Session-Id';
     C_MCP_PROTOCOL_VERSION_HEADER constant varchar2(20) := 'Mcp-Protocol-Version';
     C_PROTOCOL_VERSION constant varchar2(10) := '2026-07-28';
     C_UNSUPPORTED_PROTOCOL_VERSION constant number := -32022;
@@ -30,16 +29,11 @@ as
     begin
         l_versions.append(C_PROTOCOL_VERSION);
         l_result.put('supportedVersions', l_versions);
-        l_result.put('capabilities', oj_mcp_app_methods.negotiate_client_server_capabilities(
-            p_client_capabilities_json => p_capabilities,
-            p_protocol_2026 => true
-        ));
+        l_result.put('capabilities', oj_mcp_app_methods.negotiate_client_server_capabilities(p_capabilities));
         l_server_info.put('name', p_context);
         l_server_info.put('version', '0.1.0');
         l_meta.put('io.modelcontextprotocol/serverInfo', l_server_info);
         l_result.put('_meta', l_meta);
-        l_result.put('ttlMs', C_CACHE_TTL_MS);
-        l_result.put('cacheScope', 'public');
         p_result := l_result.to_clob();
         p_error := null;
         p_status_code := 200;
@@ -69,177 +63,50 @@ as
         p_result := l_result.to_clob();
     end add_result_envelope;
 
+    function decode_mcp_header_value(
+        p_value in varchar2
+    ) return varchar2
+    as
+        l_encoded varchar2(32767);
+        l_raw raw(32767);
+    begin
+        if substr(p_value, 1, 9) != '=?base64?' or substr(p_value, -2) != '?=' then
+            return p_value;
+        end if;
+
+        l_encoded := substr(p_value, 10, length(p_value) - 11);
+        if mod(length(l_encoded), 4) != 0
+           or not regexp_like(l_encoded, '^[A-Za-z0-9+/]*={0,2}$') then
+            return null;
+        end if;
+
+        l_raw := sys.utl_encode.base64_decode(sys.utl_raw.cast_to_raw(l_encoded));
+        return sys.utl_i18n.raw_to_char(l_raw, 'AL32UTF8');
+    exception
+        when others then
+            return null;
+    end decode_mcp_header_value;
+
+    function request_origin_is_allowed return boolean
+    as
+        l_origin varchar2(4000) := owa_util.get_cgi_env('Origin');
+        l_count pls_integer;
+    begin
+        if l_origin is null then
+            return true;
+        end if;
+
+        select count(*)
+          into l_count
+          from oj_mcp_allowed_origins
+         where lower(origin) = lower(trim(l_origin));
+
+        return l_count > 0;
+    end request_origin_is_allowed;
+
     /*
      * MCP handler implementation.
      */
-
-    procedure initialize(
-        p_username     in varchar2
-        ,p_params      in clob
-        ,p_context     in varchar2
-        ,p_result      out clob
-        ,p_error       out clob
-        ,p_status_code out number
-    )
-    as
-        l_scope logger_logs.scope%type := gc_scope_prefix || 'initialize';
-
-        l_params            json_object_t;
-        l_client_protocol_version  varchar2(32);
-        l_client_capabilities_json json_object_t;
-        l_capabilities_json json_object_t;
-        l_error_json        json_object_t;
-        l_result_json  json_object_t;
-    begin
-        logger.log_info('params: ' || p_params, l_scope);
-        /*
-         * Capabilities are determined based on the parameters sent by the client.
-         */
-        if p_params is null then
-            l_error_json := json_object_t();
-            l_error_json.put('code', C_INVALID_PARAMS);
-            l_error_json.put('message', 'Invalid parameters: p_params is null');
-            p_error := l_error_json.to_clob();
-            p_result := null;
-            p_status_code := 400;
-            return;
-        end if;
-        l_params := json_object_t.parse(p_params);
-
-        /* 
-         * The capabilities parameter is mandatory for the initialize method; 
-         * return an error if it is not found.
-         */
-        l_client_capabilities_json := l_params.get_object('capabilities');
-        if l_client_capabilities_json is null then
-            l_error_json := json_object_t();
-            l_error_json.put('code', C_INVALID_PARAMS);
-            l_error_json.put('message', 'Invalid parameters: no capabilities in initialize');
-            p_error := l_error_json.to_clob();
-            p_result := null;
-            p_status_code := 400;
-            return;
-        end if;
-
-        /*
-         * choose "2025-11-25" as a protocol version
-         * if no protocolVersion is requested by the client.
-         */
-        l_client_protocol_version  := l_params.get_string('protocolVersion');
-        if l_client_protocol_version is null then
-            logger.log_info('No protocolVersion set by the client', l_scope);
-            l_client_protocol_version := '2025-11-25';
-        end if;
-
-        /* negotiate capabilities with the client. */
-        l_capabilities_json := oj_mcp_app_methods.negotiate_client_server_capabilities(l_client_capabilities_json);
-
-        p_status_code := 200;
-        p_error := null;
-
-        /* construct response */
-        l_result_json := json_object_t();
-        l_result_json.put('protocolVersion', l_client_protocol_version);
-        l_result_json.put('capabilities',    l_capabilities_json);
-        l_result_json.put('serverInfo', json_object_t('{ "name": "' || p_context || '", "version": "0.1.0" }'));
-        p_result := l_result_json.to_clob();
-        logger.log_info('result: ' || p_result, l_scope);
-    end initialize;
-
-    procedure notifications_initialized(
-        p_username     in varchar2
-        ,p_params      in clob
-        ,p_context     in varchar2
-        ,p_result      out clob
-        ,p_error       out clob
-        ,p_status_code out number
-    )
-    as
-        l_scope logger_logs.scope%type := gc_scope_prefix || 'notifications_initialized';
-    begin
-        /* status code 204 for notifications.  */
-        p_status_code := 204;
-        p_error := null;
-        p_result := null;
-    end notifications_initialized;
-
-    procedure notifications_cancelled(
-        p_username     in varchar2
-        ,p_params      in clob
-        ,p_context     in varchar2
-        ,p_result      out clob
-        ,p_error       out clob
-        ,p_status_code out number
-    )
-    as
-        l_scope logger_logs.scope%type := gc_scope_prefix || 'notifications_cancelled';
-        l_params_obj json_object_t;
-        l_session_id varchar2(128);
-        l_request_id varchar2(128);
-        l_cancel_sql varchar2(256);
-        l_message    varchar2(4000);
-    begin
-        l_params_obj := json_object_t.parse(p_params);
-        select  sys_context('APEX$SESSION','APP_SESSION') into l_session_id from dual;
-        l_request_id := l_params_obj.get_string('requestId');
-        /*
-         * Because ALTER SYSTEM can normally be executed only by users with DBA privileges,
-         * the cancellation operation will always fail. It is therefore necessary 
-         * to create a dedicated procedure specifically for canceling the process.
-         */
-        select 'alter system cancel sql ''' || sid || ',' || serial# || '''' into l_cancel_sql
-        from v$session where action = l_session_id || ':' || l_request_id
-         and module = p_context and status = 'ACTIVE';
-        /*
-         * If function OJ_MCP_CANCEL_REQUEST is created in SYS schema.
-         */
-        $IF $$cancel_enabled $THEN
-            l_message := sys.oj_mcp_cancel_request(
-                p_module_name => p_context,
-                p_session_id  => l_session_id,
-                p_request_id  => l_request_id
-            );
-            logger.log_info(l_message, l_scope);
-        $ELSE
-            logger.log_info('Try to cancel: ' || l_cancel_sql, l_scope);
-            execute immediate l_cancel_sql;
-        $END
-        /* status code 204 for notifications.  */
-        p_status_code := 204;
-        p_error := null;
-        p_result := null;
-    exception
-        when others then
-            logger.log_error('Cancel Failed: ' || sqlerrm, l_scope);
-            logger.log_error(dbms_utility.format_error_stack, l_scope);
-            logger.log_error(dbms_utility.format_error_backtrace, l_scope);
-            /* status code 204 for notifications.  */
-            p_status_code := 204;
-            p_error  := null;
-            p_result := null;
-    end notifications_cancelled;
-
-    procedure logging_setlevel(
-        p_username     in varchar2
-        ,p_params      in clob
-        ,p_context     in varchar2
-        ,p_result      out clob
-        ,p_error       out clob
-        ,p_status_code out number
-    )
-    as
-        l_scope logger_logs.scope%type := gc_scope_prefix || 'logging_setlevel';
-
-        l_params json_object_t;
-        l_level  varchar2(16);
-    begin
-        l_params := json_object_t.parse(p_params);
-        l_level := l_params.get_string('level');
-        oj_mcp_app_methods.set_log_level(l_level);
-        p_status_code := 200;
-        p_error := null;
-        p_result := '{}';
-    end logging_setlevel;
 
     procedure tools_list(
         p_username     in varchar2
@@ -500,7 +367,6 @@ as
         ,p_username     in  varchar2
         ,p_request      in  blob
         ,p_response     out blob
-        ,p_session_id   out varchar2
         ,p_status_code  out number
         ,p_ras_config_pkg in varchar2 default null
     )
@@ -526,11 +392,10 @@ as
         l_expected_name varchar2(1000);
         l_request_meta json_object_t;
         l_client_capabilities json_object_t;
-        l_is_stateless boolean := false;
-        l_stateless_session_id varchar2(128);
+        l_apex_session_id varchar2(128);
+        l_error_data json_object_t;
+        l_supported_versions json_array_t;
         /*
-         * MCP Session = APEX Session.
-         *
          * ORDS pattern (ORDS alias) could be different from APEX workspace name.
          * but this code is assumed that both are assigned the same name.
          *
@@ -547,6 +412,7 @@ as
         l_result      clob;
         l_error       clob;
         l_status_code number;
+        l_response_json json_object_t;
         /*
          * RAS
          */
@@ -556,6 +422,16 @@ as
          * Since the system is currently under development, set the default logging level of the Logger to INFO.
          */
         logger.set_level('INFORMATION');
+
+        if not request_origin_is_allowed then
+            p_status_code := 403;
+            p_response := oj_mcp_jsonrpc_utils.create_error_response(
+                p_id      => null,
+                p_code    => C_INVALID_REQUEST,
+                p_message => 'Origin is not allowed for this MCP endpoint.'
+            );
+            return;
+        end if;
 
         /*
          * Extract the ORDS pattern and the module name from the script name.
@@ -621,19 +497,6 @@ as
         end if;
 
         /*
-         * Retrieve the session ID passed via the Mcp-Session-Id header. This numeric value corresponds to 
-         * the APEX session ID. However, it is preferable not to use the raw numeric value as-is; 
-         * instead, protect the session ID (similarly to how APEX session cookies are handled) 
-         * before assigning it to an HTTP header.
-         */
-        p_session_id := owa_util.get_cgi_env(C_MCP_SESSION_ID_HEADER);
-        if p_session_id is null then
-            logger.log_info(C_MCP_SESSION_ID_HEADER || ' not found', l_scope);
-        else
-            logger.log_info(C_MCP_SESSION_ID_HEADER || ' found, ID = ' || p_session_id, l_scope);
-        end if;
- 
-        /*
          * Validate and parse the JSON-RPC message, and extract the id, method, and params attributes.
          */
         begin
@@ -673,17 +536,18 @@ as
                 logger.log_info('Request method is ' || l_method, l_scope);
             end if;
 
-            /*
-             * Retrieve the request ID. In MCP Inspector, it is a numeric value.
-             * For notifications, the value is NULL; therefore, no validation is required.
-             */
+            /* Every method implemented by this endpoint is a JSON-RPC request. */
             l_id := oj_mcp_jsonrpc_utils.get_id(l_request_json);
-            -- l_id := l_request_json.get_number('id');
             if l_id is null then
-                logger.log_info('No id in the request', l_scope);
-            else
-                logger.log_info('jsonrpc request id is ' || oj_mcp_jsonrpc_utils.id_to_string(l_id), l_scope);
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(
+                    p_id      => null,
+                    p_code    => C_INVALID_REQUEST,
+                    p_message => 'id is required for supported MCP methods.'
+                );
+                return;
             end if;
+            logger.log_info('jsonrpc request id is ' || oj_mcp_jsonrpc_utils.id_to_string(l_id), l_scope);
 
             /*
              * Whether params is mandatory depends on the method.
@@ -696,77 +560,82 @@ as
                 logger.log_info('No params in the request', l_scope);
             end if;
 
-            /* MCP 2026-07-28 is stateless.  Version and capabilities are
-               mandatory on every request and the HTTP/body versions must match. */
+            /* MCP 2026-07-28 requires version and capabilities on every request. */
             l_protocol_header := owa_util.get_cgi_env(C_MCP_PROTOCOL_VERSION_HEADER);
-            if l_protocol_header = C_PROTOCOL_VERSION then
-                if l_params_obj is null then
-                    p_status_code := 400;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_INVALID_REQUEST,
-                        'params with _meta are required for protocol ' || C_PROTOCOL_VERSION);
-                    return;
-                end if;
-                l_request_meta := l_params_obj.get_object('_meta');
-                if l_request_meta is null then
-                    p_status_code := 400;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_INVALID_REQUEST,
-                        '_meta is required for protocol ' || C_PROTOCOL_VERSION);
-                    return;
-                end if;
-                l_protocol_version := l_request_meta.get_string('io.modelcontextprotocol/protocolVersion');
-                l_client_capabilities := l_request_meta.get_object('io.modelcontextprotocol/clientCapabilities');
-                if l_protocol_version is null or l_client_capabilities is null then
-                    p_status_code := 400;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_INVALID_REQUEST,
-                        'protocolVersion and clientCapabilities are required in _meta');
-                    return;
-                end if;
-                if l_protocol_version != l_protocol_header then
-                    p_status_code := 400;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
-                        'MCP-Protocol-Version header does not match params._meta protocolVersion');
-                    return;
-                end if;
-                l_method_header := owa_util.get_cgi_env('Mcp-Method');
-                if l_method_header is null or l_method_header != l_method then
-                    p_status_code := 400;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
-                        'Mcp-Method header does not match the JSON-RPC method');
-                    return;
-                end if;
-                if l_method in ('tools/call', 'resources/read', 'prompts/get') then
-                    l_name_header := owa_util.get_cgi_env('Mcp-Name');
-                    if l_method = 'resources/read' then
-                        l_expected_name := l_params_obj.get_string('uri');
-                    else
-                        l_expected_name := l_params_obj.get_string('name');
-                    end if;
-                    if l_name_header is null or l_expected_name is null or l_name_header != l_expected_name then
-                        p_status_code := 400;
-                        p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
-                            'Mcp-Name header does not match the JSON-RPC request');
-                        return;
-                    end if;
-                end if;
-                l_is_stateless := true;
-                if l_method in ('initialize', 'notifications/initialized', 'logging/setLevel', 'notifications/cancelled') then
-                    p_status_code := 404;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_METHOD_NOT_FOUND,
-                        'Method ' || l_method || ' is not available in protocol ' || C_PROTOCOL_VERSION);
-                    return;
-                end if;
-                if l_method not in ('server/discover', 'tools/list', 'tools/call', 'resources/list',
-                                    'resources/read', 'resources/templates/list') then
-                    p_status_code := 404;
-                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_METHOD_NOT_FOUND,
-                        'Method ' || l_method || ' not found.');
-                    return;
-                end if;
-            elsif l_protocol_header is not null then
+            if l_protocol_header is null then
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
+                    'MCP-Protocol-Version header is required.');
+                return;
+            elsif l_protocol_header != C_PROTOCOL_VERSION then
+                l_supported_versions := json_array_t();
+                l_supported_versions.append(C_PROTOCOL_VERSION);
+                l_error_data := json_object_t();
+                l_error_data.put('supported', l_supported_versions);
+                l_error_data.put('requested', l_protocol_header);
                 p_status_code := 400;
                 p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_UNSUPPORTED_PROTOCOL_VERSION,
                     'Unsupported MCP protocol version: ' || l_protocol_header,
-                    '{"supported":["' || C_PROTOCOL_VERSION || '"],"requested":"' || l_protocol_header || '"}');
+                    l_error_data.to_clob());
+                return;
+            end if;
+
+            if l_params_obj is null then
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_INVALID_REQUEST,
+                    'params with _meta are required for protocol ' || C_PROTOCOL_VERSION);
+                return;
+            end if;
+            l_request_meta := l_params_obj.get_object('_meta');
+            if l_request_meta is null then
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_INVALID_REQUEST,
+                    '_meta is required for protocol ' || C_PROTOCOL_VERSION);
+                return;
+            end if;
+            l_protocol_version := l_request_meta.get_string('io.modelcontextprotocol/protocolVersion');
+            l_client_capabilities := l_request_meta.get_object('io.modelcontextprotocol/clientCapabilities');
+            if l_protocol_version is null or l_client_capabilities is null then
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_INVALID_REQUEST,
+                    'protocolVersion and clientCapabilities are required in _meta');
+                return;
+            end if;
+            if l_protocol_version != l_protocol_header then
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
+                    'MCP-Protocol-Version header does not match params._meta protocolVersion');
+                return;
+            end if;
+
+            l_method_header := owa_util.get_cgi_env('Mcp-Method');
+            if l_method_header is null or l_method_header != l_method then
+                p_status_code := 400;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
+                    'Mcp-Method header does not match the JSON-RPC method');
+                return;
+            end if;
+
+            if l_method in ('tools/call', 'resources/read') then
+                l_name_header := decode_mcp_header_value(owa_util.get_cgi_env('Mcp-Name'));
+                if l_method = 'resources/read' then
+                    l_expected_name := l_params_obj.get_string('uri');
+                else
+                    l_expected_name := l_params_obj.get_string('name');
+                end if;
+                if l_name_header is null or l_expected_name is null or l_name_header != l_expected_name then
+                    p_status_code := 400;
+                    p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_HEADER_MISMATCH,
+                        'Mcp-Name header does not match the JSON-RPC request');
+                    return;
+                end if;
+            end if;
+
+            if l_method not in ('server/discover', 'tools/list', 'tools/call', 'resources/list',
+                                'resources/read', 'resources/templates/list') then
+                p_status_code := 404;
+                p_response := oj_mcp_jsonrpc_utils.create_error_response(l_id, C_METHOD_NOT_FOUND,
+                    'Method ' || l_method || ' not found.');
                 return;
             end if;
 
@@ -784,94 +653,30 @@ as
                 return;
         end;
         
-        /*
-         * Create a session when method is initialize.
-         */
-        if l_is_stateless then
-            apex_session.create_session(p_app_id => l_apex_app_id, p_page_id => l_apex_page_id, p_username => l_username);
-            select sys_context('APEX$SESSION','APP_SESSION') into l_stateless_session_id from dual;
-            g_ras_config_pkg := p_ras_config_pkg;
-            g_current_user := l_username;
-            g_mcp_session_id := l_stateless_session_id;
-            if p_ras_config_pkg is not null then
-                execute immediate
-                    'begin :1 := ' || dbms_assert.sql_object_name(p_ras_config_pkg) || '.PREPARE_NAMESPACE(:2); end;'
-                    using out l_nsattrlist, p_username;
-                oj_mcp_ras_ctx.create_session(l_username, l_stateless_session_id, l_nsattrlist);
-            end if;
-            /* Protocol-level sessions were removed; never emit this internal ID. */
-            p_session_id := null;
-        elsif l_method = 'initialize' then
-            apex_session.create_session(
-                p_app_id    => l_apex_app_id
-                ,p_page_id  => l_apex_page_id
-                ,p_username => l_username
-            );
-            select sys_context('APEX$SESSION','APP_SESSION') into p_session_id from dual;
-            if p_session_id is not null then
-                logger.log_info('APEX session is created as ' || p_session_id, l_scope);
-            else
-                logger.log_error('APEX session can not be created.', l_scope);
-            end if;
-            /*
-             * Create RAS session if RAS is enabled.
-             */
-            if p_ras_config_pkg is not null then
-                logger.log_info('Creating RAS session...', l_scope);
-                execute immediate
-                    'begin :1 := ' || dbms_assert.sql_object_name(p_ras_config_pkg) || '.PREPARE_NAMESPACE(:2); end;'
-                    using out l_nsattrlist, p_username;
-                for i in 1..l_nsattrlist.count
-                loop
-                    logger.log_info(l_nsattrlist(i).namespace || ' ' || l_nsattrlist(i).attribute || ' ' || l_nsattrlist(i).attribute_value, l_scope);
-                end loop;
-                oj_mcp_ras_ctx.create_session(
-                    p_current_user   => l_username,
-                    p_mcp_session_id => p_session_id,
-                    p_nsattrlist     => l_nsattrlist
-                );
-                logger.log_info('XS Session created. ' || p_session_id, l_scope);
-            else
-                logger.log_info('XS Session is not created.', l_scope);
-            end if;                  
-            g_ras_config_pkg := p_ras_config_pkg;
-            g_current_user   := l_username;
-            g_mcp_session_id := p_session_id;
-        else
-            /* Attach the session if the session ID exists. */
-            if p_session_id is not null then
-                apex_session.attach(
-                    p_app_id      => l_apex_app_id
-                    ,p_page_id    => l_apex_page_id
-                    ,p_session_id => p_session_id
-                );
-                logger.log_info('MCP session is attached to APEX session ' || p_session_id, l_scope);
-                /* update global variables */
-                g_ras_config_pkg := p_ras_config_pkg;
-                g_current_user   := l_username;
-                g_mcp_session_id := p_session_id;
-            else
-                p_status_code := case when l_is_stateless then 404 else 400 end;
-                p_response := oj_mcp_jsonrpc_utils.create_error_response(
-                    p_id      => l_id,
-                    p_code    => C_INVALID_REQUEST,
-                    p_message => 'Mcp-Session-Id is required for method: ' || l_method
-                );
-                logger.log_error('Mcp-Session-Id is required for method: ' || l_method, l_scope);
-                return;
-            end if;
+        /* APEX and RAS contexts are internal and live only for this request. */
+        apex_session.create_session(
+            p_app_id   => l_apex_app_id,
+            p_page_id  => l_apex_page_id,
+            p_username => l_username
+        );
+        select sys_context('APEX$SESSION','APP_SESSION') into l_apex_session_id from dual;
+        g_ras_config_pkg := p_ras_config_pkg;
+        g_current_user := l_username;
+        g_mcp_session_id := l_apex_session_id;
+        if p_ras_config_pkg is not null then
+            execute immediate
+                'begin :1 := ' || dbms_assert.sql_object_name(p_ras_config_pkg) || '.PREPARE_NAMESPACE(:2); end;'
+                using out l_nsattrlist, p_username;
+            oj_mcp_ras_ctx.create_session(l_username, l_apex_session_id, l_nsattrlist);
         end if;
 
         /*
-         * Set MODULE and ACTION on the session to enable lookup of an in-progress
-         * session by the requestId contained in notifications/cancelled.
-         * Note: The uniqueness relationship between session_id and the JSON-RPC
-         * request ID requires further consideration.
+         * Set MODULE and ACTION for database observability.
          */
         begin
             dbms_application_info.set_module(
                 module_name => l_ords_module_name,
-                action_name => p_session_id || ':' || oj_mcp_jsonrpc_utils.id_to_string(l_id)
+                action_name => l_apex_session_id || ':' || oj_mcp_jsonrpc_utils.id_to_string(l_id)
             );
         end;
 
@@ -881,14 +686,6 @@ as
         case l_method
             when 'server/discover' then
                 server_discover(l_ords_module_name, l_client_capabilities, l_result, l_error, l_status_code);
-            when 'initialize' then
-                initialize(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
-            when 'notifications/initialized' then
-                notifications_initialized(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
-            when 'notifications/cancelled' then
-                notifications_cancelled(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
-            when 'logging/setLevel' then
-                logging_setlevel(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'tools/list' then 
                 tools_list(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             when 'tools/call' then 
@@ -900,7 +697,7 @@ as
             when 'resources/templates/list' then 
                 resources_templates_list(l_username, l_params, l_ords_module_name, l_result, l_error, l_status_code);
             else
-                p_status_code := case when l_is_stateless then 404 else 400 end;
+                p_status_code := 404;
                 p_response := oj_mcp_jsonrpc_utils.create_error_response(
                     p_id      => l_id,
                     p_code    => C_METHOD_NOT_FOUND,
@@ -912,9 +709,9 @@ as
 
         /*
          * Return the response. 
-         */
+        */
         p_status_code := l_status_code;
-        if l_is_stateless and l_error is null and l_result is not null then
+        if l_error is null and l_result is not null then
             add_result_envelope(
                 l_result,
                 l_ords_module_name,
@@ -926,14 +723,12 @@ as
              * If an id is present, it is a standard request.
              */
             if l_error is not null then
-                /*
-                 * Return an error response if an error occurs.
-                 */
-                p_response := oj_mcp_jsonrpc_utils.create_error_response(
-                    p_id      => l_id,
-                    p_code    => C_INTERNAL_ERROR,
-                    p_message => 'Error in MCP Server: ' || l_error
-                );
+                /* Preserve the method-specific JSON-RPC error code and data. */
+                l_response_json := json_object_t();
+                l_response_json.put('jsonrpc', '2.0');
+                l_response_json := oj_mcp_jsonrpc_utils.put_id(l_response_json, l_id);
+                l_response_json.put('error', json_object_t(l_error));
+                p_response := l_response_json.to_blob();
             else
                 /*
                  * Return a response if the processing completes successfully.
@@ -947,18 +742,16 @@ as
 
         /*
          * Detach from APEX session.
-         */
+        */
         apex_session.detach;
-        if l_is_stateless then
-            begin
-                if p_ras_config_pkg is not null then
-                    oj_mcp_ras_ctx.destroy_session(l_username, l_stateless_session_id);
-                end if;
-                apex_session.delete_session(l_stateless_session_id);
-            exception when others then
-                logger.log_error('Failed to delete stateless APEX session: ' || sqlerrm, l_scope);
-            end;
-        end if;
+        begin
+            if p_ras_config_pkg is not null then
+                oj_mcp_ras_ctx.destroy_session(l_username, l_apex_session_id);
+            end if;
+            apex_session.delete_session(l_apex_session_id);
+        exception when others then
+            logger.log_error('Failed to delete request-scoped APEX session: ' || sqlerrm, l_scope);
+        end;
     exception
         when others then
             /*
@@ -981,14 +774,14 @@ as
                     logger.log_error(dbms_utility.format_error_stack, l_scope);
                     logger.log_error(dbms_utility.format_error_backtrace, l_scope);
             end;
-            if l_is_stateless and l_stateless_session_id is not null then
+            if l_apex_session_id is not null then
                 begin
                     if p_ras_config_pkg is not null then
-                        oj_mcp_ras_ctx.destroy_session(l_username, l_stateless_session_id);
+                        oj_mcp_ras_ctx.destroy_session(l_username, l_apex_session_id);
                     end if;
-                    apex_session.delete_session(l_stateless_session_id);
+                    apex_session.delete_session(l_apex_session_id);
                 exception when others then
-                    logger.log_error('Failed to delete stateless APEX session: ' || sqlerrm, l_scope);
+                    logger.log_error('Failed to delete request-scoped APEX session: ' || sqlerrm, l_scope);
                 end;
             end if;
     end ords_handler;

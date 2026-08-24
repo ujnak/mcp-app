@@ -37,7 +37,6 @@ BEGIN
       p_source         => 
 'declare
     l_response    blob;
-    l_session_id  varchar2(128);
     l_status_code number;
     l_request     blob;
 begin
@@ -47,7 +46,6 @@ begin
         ,p_username    => :current_user
         ,p_request     => l_request
         ,p_response    => l_response
-        ,p_session_id  => l_session_id
         ,p_status_code => l_status_code
     );
     /*
@@ -56,9 +54,6 @@ begin
     :status_code := l_status_code;
     sys.htp.init;
     sys.htp.p(''Content-Type: application/json'');
-    if l_session_id is not null then
-        sys.htp.p(''Mcp-Session-Id: '' || l_session_id);
-    end if;
     if l_response is not null and dbms_lob.getlength(l_response) > 0 then
         sys.htp.p(''Content-Length: '' || dbms_lob.getlength(l_response));
         sys.owa_util.http_header_close;
@@ -69,25 +64,6 @@ begin
     commit;
 end;');
 
-  ORDS.DEFINE_HANDLER(
-      p_module_name    => 'sampleserver',
-      p_pattern        => 'mcp',
-      p_method         => 'DELETE',
-      p_source_type    => 'plsql/block',
-      p_mimes_allowed  => NULL,
-      p_comments       => NULL,
-      p_source         => 
-'declare
-    l_session_id varchar2(128);
-begin
-    l_session_id := owa_util.get_cgi_env(''Mcp-Session-Id'');
-    if l_session_id is not null then
-        apex_session.delete_session(l_session_id);
-    end if;
-    :status_code := 204;
-end;');
-
-    
   ORDS.CREATE_ROLE(p_role_name => 'ORDSUsers');
     
   l_roles(1) := 'ORDSUsers';
