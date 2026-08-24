@@ -4,6 +4,9 @@
 
 This repository provides an experimental implementation of an MCP App running on top of Oracle Database and Oracle REST Data Services (ORDS).
 
+The server supports the stateless MCP `protocolVersion` `2026-07-28`; see
+[the migration and request requirements](docs/mcp-2026-07-28.md).
+
 This implementation is intended for experimentation and reference purposes.
 
 ## Mandatory components

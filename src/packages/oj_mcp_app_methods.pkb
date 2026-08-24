@@ -80,7 +80,8 @@ end set_log_level;
  * Client Server capability negotiation.
  */
 function negotiate_client_server_capabilities(
-    p_client_capabilities_json in json_object_t
+    p_client_capabilities_json in json_object_t,
+    p_protocol_2026 in boolean default false
 ) return json_object_t
 as
     l_scope logger_logs.scope%type := gc_scope_prefix || 'negotiate_client_server_capabilities';
@@ -88,17 +89,18 @@ as
     l_resources_json           json_object_t;
     l_tools_json               json_object_t;
     l_client_extensions_json   json_object_t;
+    l_server_extensions_json   json_object_t;
+    l_ui_extension_json        json_object_t;
+    l_mime_types               json_array_t;
 begin
     logger.log_info('client capabilities: ' || p_client_capabilities_json.to_clob(), l_scope);
 
     /* construct negotiated capabilities */
     l_server_capabilities_json := json_object_t();
 
-    /*
-        * logging is always provided.
-        * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging#capabilities
-        */
-    l_server_capabilities_json.put('logging', json_object_t());
+    if not p_protocol_2026 then
+        l_server_capabilities_json.put('logging', json_object_t());
+    end if;
 
     /* 
         * resources for MCP App support
@@ -106,7 +108,7 @@ begin
         */
     l_resources_json := json_object_t();
     l_resources_json.put('subscribe', false);
-    l_resources_json.put('listChanged', true);
+    l_resources_json.put('listChanged', not p_protocol_2026);
     l_server_capabilities_json.put('resources', l_resources_json);
 
     /*
@@ -114,7 +116,7 @@ begin
         * Ref: https://modelcontextprotocol.io/specification/2025-11-25/server/tools#capabilities
         */
     l_tools_json := json_object_t();
-    l_tools_json.put('listChanged', true);
+    l_tools_json.put('listChanged', not p_protocol_2026);
     l_server_capabilities_json.put('tools', l_tools_json);
 
     /*
@@ -133,7 +135,13 @@ begin
     l_client_extensions_json := p_client_capabilities_json.get_object('extensions');
     if l_client_extensions_json is not null then
         if l_client_extensions_json.get_object('io.modelcontextprotocol/ui') is not null then
-            l_server_capabilities_json.put('extensions',  l_client_extensions_json);
+            l_server_extensions_json := json_object_t();
+            l_ui_extension_json := json_object_t();
+            l_mime_types := json_array_t();
+            l_mime_types.append('text/html;profile=mcp-app');
+            l_ui_extension_json.put('mimeTypes', l_mime_types);
+            l_server_extensions_json.put('io.modelcontextprotocol/ui', l_ui_extension_json);
+            l_server_capabilities_json.put('extensions', l_server_extensions_json);
         end if;
     end if;
 
@@ -245,7 +253,7 @@ as
     l_out                clob;
     l_args_clob          clob;
     l_out_obj            json_object_t;
-    l_structured_content json_object_t;
+    l_structured_content json_element_t;
     l_result_json        json_object_t;
     l_output_schema      oj_mcp_uc_ai_tools.output_schema%type;
     /* execute immediate */
@@ -469,7 +477,7 @@ begin
             end if;
             if l_out_obj.has('structuredContent') then
                 logger.log_info('structuredContent found', l_scope);
-                l_structured_content := l_out_obj.get_object('structuredContent');
+                l_structured_content := l_out_obj.get('structuredContent');
             end if;
         exception
             when others then
@@ -510,7 +518,7 @@ begin
         end if;
         /* JSON with content - content has already added to l_result_json */
         if l_structured_content is null then
-            l_structured_content := json_object_t(l_out);
+            l_structured_content := json_element_t.parse(l_out);
         end if;
         l_result_json.put('structuredContent', l_structured_content);
     else

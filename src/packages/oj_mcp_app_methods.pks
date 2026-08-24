@@ -37,7 +37,8 @@ procedure set_log_level(
  * @return JSON object containing the server's capabilities to be sent back to the client.
  */
 function negotiate_client_server_capabilities(
-    p_client_capabilities_json in json_object_t
+    p_client_capabilities_json in json_object_t,
+    p_protocol_2026 in boolean default false
 ) return json_object_t;
 
 /**
